@@ -6,6 +6,7 @@ __pycache__/
 *$py.class
 
 # Distribution / packaging
+/dispatches/workflow/train_market_surrogates/
 .Python
 build/
 develop-eggs/
