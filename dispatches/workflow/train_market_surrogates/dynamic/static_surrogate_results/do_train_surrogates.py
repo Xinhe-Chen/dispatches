@@ -23,7 +23,7 @@ from dispatches_data.api import path
 def main():
     # for NE case study
     path_to_data_package = path("dynamic_sweep")
-    case_type = "NE"
+    case_type = "RE"
     model_type = "revenue"
 
     if case_type == "NE":
@@ -76,7 +76,7 @@ def main():
         hidden_nodes = 25
         hidden_layers = 2
         if case_type == "RE":
-            data_path = path_to_data_package / "RE" / "RE_H2_RT_revenue.csv"
+            data_path = str(pathlib.Path.cwd().joinpath(f'{case_type}_case_study', 'RE_H2_RT_revenue.csv'))
             NN_rev_model_path = str(pathlib.Path.cwd().joinpath(f'{case_type}_case_study', 'RT_revenue', f'{case_type}_RT_revenue_{hidden_layers}_{hidden_nodes}'))
             NN_rev_param_path = str(pathlib.Path.cwd().joinpath(f'{case_type}_case_study', 'RT_revenue', f'{case_type}_RT_revenue_params_{hidden_layers}_{hidden_nodes}.json'))
         if case_type == "NE":

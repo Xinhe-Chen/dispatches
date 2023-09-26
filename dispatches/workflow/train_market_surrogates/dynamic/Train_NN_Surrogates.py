@@ -58,6 +58,7 @@ class TrainNNSurrogates:
         self.filter_opt = filter_opt
         # set a class property which is the time length of a day.
         self._time_length = 24
+        self.case_type = self.simulation_data.case_type
 
 
     @property
@@ -478,7 +479,7 @@ class TrainNNSurrogates:
         model = keras.Sequential(name=self.model_type)
         model.add(layers.Input(input_layer_size))
         for layer_size in NN_size[1:-1]:
-            model.add(layers.Dense(layer_size, activation='sigmoid'))
+            model.add(layers.Dense(layer_size, activation='tanh'))
         model.add(layers.Dense(output_layer_size))
         model.compile(optimizer=Adam(), loss='mse')
         history = model.fit(x=x_train_scaled, y=y_train_scaled, verbose=0, epochs=500)
@@ -581,9 +582,8 @@ class TrainNNSurrogates:
             None
         '''
         # set the font for the plots
-        font1 = {'family' : 'Times New Roman',
-            'weight' : 'normal',
-            'size'   : 18,
+        font1 = {'weight' : 'bold',
+            'size'   : 16,
             }
 
         if self.model_type == 'frequency':
@@ -608,8 +608,8 @@ class TrainNNSurrogates:
             wsm = NN_param['ws_mean']
             wsstd = NN_param['ws_std']
 
-            x_test_scaled = (x_test - xm)/xstd
-            pred_ws = NN_model.predict(x_test_scaled)
+            x_scaled = (x - xm)/xstd
+            pred_ws = NN_model.predict(x_scaled)
             pred_ws_unscaled = pred_ws*wsstd + wsm
 
             if self.filter_opt == True:
@@ -624,8 +624,8 @@ class TrainNNSurrogates:
             for rd in range(num_clusters):
                 # compute R2 metric
                 wspredict = pred_ws_unscaled.transpose()[rd]
-                SS_tot = np.sum(np.square(ws_test.transpose()[rd] - wsm[rd]))
-                SS_res = np.sum(np.square(ws_test.transpose()[rd] - wspredict))
+                SS_tot = np.sum(np.square(ws.transpose()[rd] - wsm[rd]))
+                SS_res = np.sum(np.square(ws.transpose()[rd] - wspredict))
                 residual = 1 - SS_res/SS_tot
                 R2.append(residual)
             print(R2)
@@ -636,7 +636,7 @@ class TrainNNSurrogates:
                 fig.text(0.4, 0.05, 'True dispatch frequency', va='center', rotation='horizontal',font = font1)
                 fig.set_size_inches(10,10)
 
-                wst = ws_test.transpose()[i]
+                wst = ws.transpose()[i]
                 wsp = pred_ws_unscaled.transpose()[i]
 
                 axs.scatter(wst*366,wsp*366,color = "green",alpha = 0.5)
@@ -653,7 +653,7 @@ class TrainNNSurrogates:
                 plt.tick_params(direction="in",top=True, right=True)
 
                 if fig_name == None:
-                    folder_path = f'{self.case_type}_case_study/R2_figures'
+                    folder_path = f'{self.simulation_data.case_type}_case_study/R2_figures'
                     if not os.path.isdir(folder_path):
                         os.mkdir(folder_path)
                     default_path = str(pathlib.Path.cwd().joinpath(folder_path, f'{self.simulation_data.case_type}_dispatch_cluster{i}.png'))
@@ -686,14 +686,14 @@ class TrainNNSurrogates:
             ym = NN_param['y_mean']
             ystd = NN_param['y_std']
 
-            x_test_scaled = (x_test - xm)/xstd
-            pred_y = NN_model.predict(x_test_scaled)
+            x_scaled = (x - xm)/xstd
+            pred_y = NN_model.predict(x_scaled)
             pred_y_unscaled = pred_y*ystd + ym
 
             # compute R2
             ypredict = pred_y_unscaled.transpose()
-            SS_tot = np.sum(np.square(y_test.transpose() - ym))
-            SS_res = np.sum(np.square(y_test.transpose() - ypredict))
+            SS_tot = np.sum(np.square(y.transpose() - ym))
+            SS_res = np.sum(np.square(y.transpose() - ypredict))
             R2 = 1 - SS_res/SS_tot
             print(R2)
 
@@ -703,7 +703,7 @@ class TrainNNSurrogates:
             fig.text(0.4, 0.05, 'True revenue/$', va='center', rotation='horizontal',font = font1)
             fig.set_size_inches(10,10)
 
-            yt = y_test.transpose()
+            yt = y.transpose()
             yp = pred_y_unscaled.transpose()
 
             axs.scatter(yt,yp,color = "green",alpha = 0.5)

@@ -22,10 +22,11 @@ import tensorflow as tf
 from tensorflow import keras
 import matplotlib.pyplot as plt
 from dispatches.workflow.train_market_surrogates.dynamic.Simulation_Data import SimulationData
-from dispatches.workflow.train_market_surrogates.dynamic.NE_case_study.Train_NN_Surrogates_steady_state import TrainNNSurrogates
+from dispatches_data.api import path
 
 
-def get_params(case_type = 'RE'):
+
+def get_params(case_type = 'NE'):
 
     current_path = os.getcwd()
 
@@ -34,7 +35,8 @@ def get_params(case_type = 'RE'):
     # static clustering
     surrogate_path = os.path.join(current_path, 'steady_state', 'tanh_25_25', 'NE_steady_state')
     surrogate_param_path = os.path.join(current_path, 'steady_state', 'tanh_25_25', 'NE_steady_state_params.json')
-    input_data_path = os.path.join(current_path, '..', '..', '..', '..', '..', '..', 'datasets','results_nuclear_sweep','sweep_parameters_results_NE_whole.h5')
+    path_to_data_package = path("dynamic_sweep")
+    input_data_path = path_to_data_package / "NE" / 'sweep_parameters_results_NE_whole.h5'
 
     surrogate_path_dict = {}
     surrogate_path_dict['surrogate_path'] = surrogate_path
@@ -42,9 +44,9 @@ def get_params(case_type = 'RE'):
     surrogate_path_dict['input_data_path'] = input_data_path
     surrogate_path_dict['case_type'] = 'NE'
 
-    # Prescient data path (RE)
+    # Prescient data path (NE)
     num_sims = 192
-    dispatch_data_path = os.path.join(current_path, '..', '..', '..', '..', '..', '..', 'datasets','results_nuclear_sweep','Dispatch_data_NE_whole.csv')
+    dispatch_data_path = path_to_data_package / "NE" / "Dispatch_data_NE_Dispatch_whole.csv"
 
     sweep_param_dict = {}
     sweep_param_dict['num_sims'] = num_sims
@@ -149,7 +151,7 @@ def make_dispatch_power_heatmap(case_type, sweep_dispatch_cf_dict, surrogate_yea
         ratio_arrray = np.zeros((len(pem_ratio),len(pem_bid)))
         for i in range(len(pem_ratio)):
             for j in range(len(pem_bid)):
-                # r = surrogate_year_cf_dict[c]/sweep_dispatch_cf_dict[c]
+                r = surrogate_year_cf_dict[c]/sweep_dispatch_cf_dict[c]
                 r = sweep_dispatch_cf_dict[c]
                 ratio_arrray[i][j] = r
                 c += 1
@@ -183,17 +185,18 @@ def make_dispatch_power_heatmap(case_type, sweep_dispatch_cf_dict, surrogate_yea
     return
 
 
-case_type = 'NE'
-num_sims = 192
+def main():
+    case_type = 'NE'
+    num_sims = 192
 
 
-surrogate_path_dict, sweep_param_dict = get_params(case_type)
-sweep_year_cf_dict = calculate_sweep_year_capacity_factor(sweep_param_dict)
-surrogate_year_cf_dict = calculate_surrogate_year_capacity_factor(surrogate_path_dict)
+    surrogate_path_dict, sweep_param_dict = get_params(case_type)
+    sweep_year_cf_dict = calculate_sweep_year_capacity_factor(sweep_param_dict)
+    surrogate_year_cf_dict = calculate_surrogate_year_capacity_factor(surrogate_path_dict)
 
-# Read input data to array
-X  = read_inputs_to_array(sweep_param_dict['input_data_path'])
+    # Read input data to array
+    X  = read_inputs_to_array(sweep_param_dict['input_data_path'])
 
-make_dispatch_power_heatmap(case_type, sweep_year_cf_dict, surrogate_year_cf_dict)
+    make_dispatch_power_heatmap(case_type, sweep_year_cf_dict, surrogate_year_cf_dict)
 
 
