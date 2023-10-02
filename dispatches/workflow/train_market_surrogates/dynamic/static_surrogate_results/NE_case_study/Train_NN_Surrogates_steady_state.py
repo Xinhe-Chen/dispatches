@@ -256,7 +256,7 @@ class TrainNNSurrogates:
         # set the font for the plots
         font1 = {
             'weight' : 'bold',
-            'size'   : 16,
+            'size'   : 18,
             }
 
         font2 = {
@@ -304,7 +304,7 @@ class TrainNNSurrogates:
         axs.scatter(yt,yp,color = "green",alpha = 0.5)
         axs.plot([min(yt),max(yt)],[min(yt),max(yt)],color = "black")
         # axs.set_title(f'NE Capacity Factor',font = font1)
-        axs.annotate("$R^2 = {}$".format(round(R2,3)),(min(yt),0.85*max(yt)),font = font1)    
+        axs.annotate("$R^2 = {}$".format(round(R2,3)),(min(yt),0.85*max(yt)),fontsize = 18)    
 
         plt.xticks(fontsize=15)
         plt.yticks(fontsize=15)

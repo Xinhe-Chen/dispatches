@@ -13,7 +13,7 @@
 #
 #################################################################################
 import os
-
+import pathlib
 from tslearn.clustering import TimeSeriesKMeans
 from tslearn.utils import to_time_series_dataset
 from sklearn.model_selection import train_test_split
@@ -131,9 +131,9 @@ class TrainNNSurrogates:
             None
         '''
         
-        if not isinstance(value, str):
+        if not (isinstance(value, str) or isinstance(value, pathlib.WindowsPath) or isinstance(value, pathlib.PosixPath)):
             raise TypeError(
-                f"The data_file must be str, but {type(value)} is given."
+                f"The data_file must be str or object, but {type(value)} is given."
             )
         self._data_file = value
 
@@ -585,11 +585,11 @@ class TrainNNSurrogates:
         # set the font for the plots
         font1 = {
             'weight' : 'bold',
-            'size'   : 16,
+            'size'   : 18,
             }
         font2 = {
             'weight' : 'normal',
-            'size'   : 15,
+            'size'   : 18,
             }
         if self.model_type == 'frequency':
             
@@ -738,7 +738,7 @@ class TrainNNSurrogates:
             axs.scatter(yt/1e6,yp/1e6,color = "green",alpha = 0.5)
             axs.plot([min(yt)/1e6,max(yt)/1e6],[min(yt)/1e6,max(yt)/1e6],color = "black")
             # axs.set_title(f'{self.simulation_data.case_type} Revenue',font = font1)
-            axs.annotate("$R^2 = {}$".format(round(R2,3)),(min(yt)/1e6,0.85*max(yt)/1e6),font = font1)    
+            axs.annotate("$R^2 = {}$".format(round(R2,3)),(min(yt)/1e6,0.85*max(yt)/1e6),fontsize = 18)    
 
             plt.xticks(fontsize=15)
             plt.yticks(fontsize=15)

@@ -14,7 +14,7 @@
 
 import os
 from dispatches.workflow.train_market_surrogates.dynamic.static_surrogate_results.Simulation_Data_subscenario import SimulationData
-from dispatches.workflow.train_market_surrogates.dynamic.NE_case_study.Train_NN_Surrogates_steady_state import TrainNNSurrogates
+from dispatches.workflow.train_market_surrogates.dynamic.static_surrogate_results.NE_case_study.Train_NN_Surrogates_steady_state import TrainNNSurrogates
 import pathlib
 from dispatches_data.api import path
 
@@ -34,7 +34,7 @@ def main():
     # TrainNNSurrogates, dispatch cf
     print('Start train dispatch frequency surrogate')
     NNtrainer = TrainNNSurrogates(simulation_data)
-    NN_model = NNtrainer.train_NN_cf([4,25,25,1])
+    # NN_model = NNtrainer.train_NN_cf([4,25,25,1])
     NN_frequency_model_path = str(pathlib.Path.cwd().joinpath(f'steady_state/tanh_25_25/NE_steady_state'))
     NN_frequency_param_path = str(pathlib.Path.cwd().joinpath(f'steady_state/tanh_25_25/NE_steady_state_params.json'))
     # NNtrainer.save_model(NN_model, NN_frequency_model_path, NN_frequency_param_path)
