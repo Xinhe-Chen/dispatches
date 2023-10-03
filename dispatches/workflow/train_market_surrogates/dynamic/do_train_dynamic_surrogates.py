@@ -23,13 +23,13 @@ from dispatches_data.api import path
 def main():
     # for NE case study
     path_to_data_package = path("dynamic_sweep")
-    case_type = "RE"
-    model_id = "revenue"
-    num_clusters = 20
-    num_sims = 224
+    case_type = "NE"
+    model_id = "dispatch"
+    num_clusters = 30
+    num_sims = 192
 
-    dispatch_data_path = path_to_data_package / case_type / f"Dispatch_data_{case_type}_H2_Dispatch_whole.csv"
-    input_data_path = path_to_data_package / case_type / f"sweep_parameters_results_{case_type}_H2_whole.h5"
+    dispatch_data_path = path_to_data_package / case_type / f"Dispatch_data_{case_type}_Dispatch_whole.csv"
+    input_data_path = path_to_data_package / case_type / f"sweep_parameters_results_{case_type}_whole.h5"
     input_layer_node = 4
     filter_opt = True
     clustering_result_path = str(pathlib.Path.cwd().joinpath(f'{case_type}_case_study', f'{case_type}_{num_sims}years_{num_clusters}clusters_OD.json'))
@@ -46,19 +46,18 @@ def main():
 
     if model_id == "clustering":
         print('Start Time Series Clustering')
-        clusteringtrainer = TimeSeriesClustering(num_clusters, simulation_data, filter_opt)
-        clustering_model = clusteringtrainer.clustering_data_kmeans()
+        clusteringtrainer = TimeSeriesClustering(simulation_data, num_clusters, filter_opt)
+        # clustering_model = clusteringtrainer.clustering_data()
         clustering_result_path = str(pathlib.Path.cwd().joinpath(f'{case_type}_case_study', f'{case_type}_{num_sims}years_{num_clusters}clusters_OD.json'))
-        clusteringtrainer.save_clustering_model(clustering_model, fpath = clustering_result_path)
+        # clusteringtrainer.save_clustering_model(clustering_model, fpath = clustering_result_path)
         # plot results
-        for i in range(num_clusters):
-            clusteringtrainer.plot_results(clustering_result_path, i)
-        clusteringtrainer.box_plots(clustering_result_path)
+        clusteringtrainer.plot_results(clustering_result_path)
+        # clusteringtrainer.box_plots(clustering_result_path)
     
     elif model_id == "revenue":
         # TrainNNSurrogates, revenue
         print('Start train revenue surrogate')
-        hidden_nodes = 25
+        hidden_nodes = 30
         hidden_layers = 2
 
         NN_rev_model_path = str(pathlib.Path.cwd().joinpath(f'{case_type}_case_study', 'revenue', f'{case_type}_revenue_{hidden_layers}_{hidden_nodes}'))
@@ -70,14 +69,14 @@ def main():
         # save to given path
         NNtrainer_rev.model_type = 'revenue'
         # NNtrainer_rev.save_model(model_rev, NN_rev_model_path, NN_rev_param_path)
-        NNtrainer_rev.plot_R2_results(NN_rev_model_path, NN_rev_param_path)
+        # NNtrainer_rev.plot_R2_results(NN_rev_model_path, NN_rev_param_path)
 
     # TrainNNSurrogates, dispatch frequency
     elif model_id == "dispatch":
         print('Start train dispatch frequency surrogate')
         clustering_model_path = clustering_result_path
         NNtrainer_df = TrainNNSurrogates(simulation_data, clustering_model_path, filter_opt = filter_opt)
-        model_df = NNtrainer_df.train_NN_frequency([input_layer_node,75,75,75,32])
+        model_df = NNtrainer_df.train_NN_frequency([input_layer_node,75,75,75,num_clusters+2])
         NN_frequency_model_path = str(pathlib.Path.cwd().joinpath(f'{case_type}_case_study', f'{case_type}_{num_clusters}clusters_dispatch_frequency'))
         NN_frequency_param_path = str(pathlib.Path.cwd().joinpath(f'{case_type}_case_study', f'{case_type}_{num_clusters}clusters_dispatch_frequency_params.json'))
         # NNtrainer_df.save_model(model_df, NN_frequency_model_path, NN_frequency_param_path)

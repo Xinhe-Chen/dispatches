@@ -548,10 +548,10 @@ class TimeSeriesClustering:
                 ax.plot(time_length, data, '--', c='g', alpha=0.05)
             cf_center = np.sum(centers_dict[idx])/24
             ax.plot(time_length, centers_dict[idx], '-', c='r', linewidth=3, alpha=1.0, label = f'representative ({round(cf_center,3)})')
-            cf_95 = np.sum(cluster_95_dispatch[idx])/24
-            ax.plot(time_length, cluster_95_dispatch[idx], '-', c='brown', linewidth=3, alpha=1.0, label = f'95 quantile ({round(cf_95,3)})')
-            cf_5 = np.sum(cluster_5_dispatch[idx])/24
-            ax.plot(time_length, cluster_5_dispatch[idx], '-', c='pink', linewidth=3, alpha=1.0, label = f'5 quantile ({round(cf_5,3)})')
+            # cf_95 = np.sum(cluster_95_dispatch[idx])/24
+            # ax.plot(time_length, cluster_95_dispatch[idx], '-', c='brown', linewidth=3, alpha=1.0, label = f'95 quantile ({round(cf_95,3)})')
+            # cf_5 = np.sum(cluster_5_dispatch[idx])/24
+            # ax.plot(time_length, cluster_5_dispatch[idx], '-', c='pink', linewidth=3, alpha=1.0, label = f'5 quantile ({round(cf_5,3)})')
             cf_med = np.sum(cluster_median_dispatch[idx])/24
             ax.plot(time_length, cluster_median_dispatch[idx], '-', c='k', linewidth=3, alpha=1.0, label = f'median ({round(cf_med,3)})')
             ax.tick_params(direction = 'in')
@@ -564,7 +564,7 @@ class TimeSeriesClustering:
             folder_path = f'{self.case_type}_case_study/clustering_figures'
             if not os.path.isdir(folder_path):
                 os.mkdir(folder_path)
-            figname = str(pathlib.Path.cwd().joinpath(folder_path, f'{self.case_type}_dispatch_cluster_{idx}.jpg'))
+            figname = str(pathlib.Path.cwd().joinpath(folder_path, f'{self.case_type}_dispatch_{self.num_clusters}_cluster_{idx}.jpg'))
             plt.savefig(figname, dpi = 300)
         
         dispatch_result = [cluster_95_dispatch, cluster_5_dispatch, cluster_median_dispatch]

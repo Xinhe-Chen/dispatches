@@ -23,14 +23,14 @@ from dispatches_data.api import path
 def main():
     # for NE case study
     path_to_data_package = path("dynamic_sweep")
-    case_type = "RE"
-    model_type = "revenue"
+    case_type = "NE"
+    model_type = "clustering"
 
     if case_type == "NE":
         dispatch_data_path = path_to_data_package / "NE" / "Dispatch_data_NE_Dispatch_whole.csv"
         input_data_path = path_to_data_package / "NE" / "sweep_parameters_results_NE_whole.h5"
         case_type = 'NE'
-        num_clusters = 30
+        num_clusters = 20
         num_sims = 192
         input_layer_node = 4
         filter_opt = True
@@ -59,16 +59,18 @@ def main():
     print('Read simulation data')
     simulation_data = SimulationData(dispatch_data_path, input_data_path, num_sims, case_type)
 
-    # print('Start Time Series Clustering')
-    # clusteringtrainer = TimeSeriesClustering(num_clusters, simulation_data, filter_opt)
-    # clustering_model = clusteringtrainer.clustering_data_kmeans()
-    clustering_result_path = str(pathlib.Path.cwd().joinpath(f'{case_type}_case_study', f'{case_type}_{num_sims}years_{num_clusters}clusters_OD.json'))
-    # clusteringtrainer.save_clustering_model(clustering_model, fpath = clustering_result_path)
-    # # plot results
-    # for i in range(num_clusters):
-    #     clusteringtrainer.plot_results(clustering_result_path, i)
-    # clusteringtrainer.box_plots(clustering_result_path)
-    
+    if model_type == "clustering":
+        print('Start Time Series Clustering')
+        clusteringtrainer = TimeSeriesClustering(simulation_data, num_clusters, filter_opt)
+        method = "kmedoids"
+        clustering_model = clusteringtrainer.clustering_data_kmedoids()
+        clustering_result_path = str(pathlib.Path.cwd().joinpath(f'{case_type}_case_study', f'{case_type}_{num_sims}years_{num_clusters}clusters_{method}.json'))
+        clusteringtrainer.save_clustering_model(clustering_model, fpath = clustering_result_path)
+        # plot results
+        if method == "kmedoids":
+            clusteringtrainer.plot_results(clustering_model)
+            # clusteringtrainer.box_plots(clustering_result_path)
+        
 
     # TrainNNSurrogates, revenue
     if model_type == "revenue":

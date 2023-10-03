@@ -14,18 +14,20 @@
 #################################################################################
 
 import os
+import pathlib
 from tslearn.clustering import TimeSeriesKMeans
 from tslearn.utils import to_time_series_dataset
 from sklearn_extra.cluster import KMedoids
 from tslearn.utils import to_sklearn_dataset
 import numpy as np
 import json
+import pickle
 import matplotlib.pyplot as plt
 
 # this script supports subscenario anaylsis.
 class TimeSeriesClustering:
 
-    def __init__(self, num_clusters, simulation_data, filter_opt = True, metric = 'euclidean'):
+    def __init__(self, simulation_data, num_clusters, filter_opt = True, metric = 'euclidean'):
         
         ''' 
         Time series clustering for the dispatch data. 
@@ -323,6 +325,44 @@ class TimeSeriesClustering:
         return clustering_model
 
 
+    def save_clustering_model_kmedoids(self, clustering_model, fpath = None):
+
+        '''
+        Save the model in pickle file. fpath can be specified by the user. 
+
+        Arguments:
+
+            clustering_model: trained model from self.clustering_data()
+
+            fpath: if None, save to default path
+
+        Return:
+
+            result_path: result path for the json file. 
+        '''
+
+        if fpath == None:    # if none, save to the current folder
+            current_path = os.getcwd()
+            result_path = os.path.join(f'{self.simulation_data.case_type}_result_{self.simulation_data.num_sims}years_{self.num_clusters}clusters_kmedoids.pkl')
+            with open (result_path, 'wb') as f:
+                pickle.dump(clustering_model, f)
+
+        else:    # save to the given path
+            if os.path.isabs(fpath) == True:    # if the path is the absolute path
+                result_path = fpath
+                with open (result_path, 'wb') as f:
+                    pickle.dump(clustering_model, f)
+            else:
+                current_path = os.getcwd()
+                result_path = os.path.join(current_path,fpath)    # make the path a absolute path
+                if not os.path.isdir(result_path):
+                    os.mkdir(result_path)
+                with open(result_path, 'wb') as f:
+                    pickle.dump(clustering_model, f)
+
+        return result_path
+    
+
     def save_clustering_model(self, clustering_model, fpath = None):
 
         '''
@@ -356,7 +396,7 @@ class TimeSeriesClustering:
         return result_path
 
 
-    def plot_results_kmedoid(self, clustering_model, idx):
+    def plot_results_kmedoids(self, clustering_model):
         day_dataset = self._transform_data()
         train_data = to_sklearn_dataset(day_dataset)
         centers_dict = {}
@@ -379,14 +419,20 @@ class TimeSeriesClustering:
         }
 
         f,ax1 = plt.subplots(figsize = ((16,6)))
-        for data in label_data_dict[idx]:
-            ax1.plot(time_length, data, '--', c='g', alpha=0.3)
+        for idx in range(self.num_clusters):
+            for data in label_data_dict[idx]:
+                ax1.plot(time_length, data, '--', c='g', alpha=0.3)
 
-        ax1.plot(time_length, centers_dict[idx], '-', c='r', alpha=1.0)
-        ax1.set_ylabel('Capacity factor',font = font1)
-        ax1.set_xlabel('Time(h)',font = font1)
-        figname = f'FE_case_study/kmedoid_clustering_figures/NE_kmedoids_result_{self.num_clusters}clusters_cluster{idx}.jpg'
-        plt.savefig(figname, dpi = 300)
+            ax1.plot(time_length, centers_dict[idx], '-', c='r', alpha=1.0)
+            ax1.set_ylabel('Capacity factor',font = font1)
+            ax1.set_xlabel('Time(h)',font = font1)
+
+            # save the figure
+            folder_path = f'{self.case_type}_case_study/clustering_figures_kmedoids'
+            if not os.path.isdir(folder_path):
+                os.mkdir(folder_path)
+            figname = str(pathlib.Path.cwd().joinpath(folder_path, f'{self.case_type}_dispatch_kmedoids_cluster_{idx}.jpg'))
+            plt.savefig(figname, dpi = 300)
 
         return
 
