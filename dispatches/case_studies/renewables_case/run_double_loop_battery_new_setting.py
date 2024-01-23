@@ -115,8 +115,8 @@ gen_capacity_factor = wind_df[f"{wind_generator}-RTCF"].values.tolist()
 
 # NOTE: `rts_gmlc_data_dir` should point to a directory containing RTS-GMLC scenarios
 rts_gmlc_data_dir = rts_gmlc.source_data_path
-output_dir = Path(f"new_wind_battery_ratio_duration_sweep_sb/battery_duration_{duration}/Sweep_rerun_wind_battery_stochastic_bidder_sim_{sim_id}")
-# output_dir = Path(sim_name)
+# output_dir = Path(f"new_wind_battery_ratio_duration_sweep_sb/battery_duration_{duration}/Sweep_rerun_wind_battery_stochastic_bidder_sim_{sim_id}")
+output_dir = Path(f"test_new_cost_func_{sim_id}")
 
 solver = pyo.SolverFactory(solver_name)
 
@@ -234,6 +234,8 @@ if participation_mode == "Bid":
         n_scenario=n_scenario,
         solver=solver,
         forecaster=backcaster,
+        real_time_underbid_penalty=10000,
+        real_time_participation_only=True,
     )
 elif participation_mode == "SelfSchedule":
     bidder_object = SelfScheduler(

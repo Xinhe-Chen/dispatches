@@ -169,13 +169,12 @@ class MultiPeriodWindBattery:
         blk.HOUR = pyo.Set(initialize=range(horizon))
         blk.P_T = pyo.Expression(blk.HOUR)
         blk.tot_cost = pyo.Expression(blk.HOUR)
-        blk.wind_waste_penalty = pyo.Param(default=1e3, mutable=True)
+        blk.wind_waste_penalty = pyo.Param(default=0, mutable=True)
         blk.wind_waste = pyo.Expression(blk.HOUR)
         for (t, b) in enumerate(active_blks):
             blk.P_T[t] = (b.fs.splitter.grid_elec[0] + b.fs.battery.elec_out[0]) * 1e-3
             blk.wind_waste[t] = (b.fs.windpower.system_capacity * b.fs.windpower.capacity_factor[0] - b.fs.windpower.electricity[0]) * 1e-3
-            blk.tot_cost[t] = b.fs.windpower.op_total_cost + b.fs.battery.var_cost + blk.wind_waste_penalty * blk.wind_waste[t]
-
+            blk.tot_cost[t] = b.fs.windpower.op_total_cost + b.fs.battery.op_cost + 1e-5 * b.fs.battery.elec_out[0] - 1e-6 * b.fs.battery.elec_in[0]
         return
 
     def update_model(self, b, realized_soc, realized_energy_throughput):
@@ -310,7 +309,7 @@ class MultiPeriodWindBattery:
                 round(pyo.value(process_blk.fs.splitter.grid_elec[0] * 1e-3), 2)
             )
             result_dict["Wind Curtailment [MW]"] = float(
-                round(pyo.value(blk.wind_waste[0]), 2)
+                round(pyo.value(blk.wind_waste[t]), 2)
             )
             result_dict["Battery Power Output [MW]"] = float(
                 round(pyo.value(process_blk.fs.battery.elec_out[0] * 1e-3), 2)

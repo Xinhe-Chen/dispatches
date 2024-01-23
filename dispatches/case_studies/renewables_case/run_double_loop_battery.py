@@ -232,6 +232,8 @@ if participation_mode == "Bid":
         n_scenario=n_scenario,
         solver=solver,
         forecaster=backcaster,
+        real_time_underbid_penalty = 10000,
+        real_time_participation_only = True,
     )
 elif participation_mode == "SelfSchedule":
     bidder_object = SelfScheduler(
