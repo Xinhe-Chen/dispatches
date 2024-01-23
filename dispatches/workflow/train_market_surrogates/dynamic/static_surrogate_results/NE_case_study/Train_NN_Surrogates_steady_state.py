@@ -22,6 +22,7 @@ from tensorflow.keras.optimizers import Adam
 import numpy as np
 import json
 import matplotlib.pyplot as plt
+from sklearn.metrics import mean_squared_error
 
 
 class TrainNNSurrogates:
@@ -185,9 +186,9 @@ class TrainNNSurrogates:
 
         print("Evaluate on test data")
         evaluate_res = model.evaluate(x_test_scaled, y_test_scaled)
-        print(evaluate_res)
-        print(history.history['loss'][-1])
-        print(history.history['val_loss'][-1])
+        # print(evaluate_res)
+        # print(history.history['loss'][-1])
+        # print(history.history['val_loss'][-1])
         predict_y = np.array(model.predict(x_test_scaled))
         predict_y_unscaled = predict_y*ystd + ym
 
@@ -196,7 +197,8 @@ class TrainNNSurrogates:
         SS_tot = np.sum(np.square(y_test.transpose() - ym))
         SS_res = np.sum(np.square(y_test.transpose() - ypredict))
         R2 = 1 - SS_res/SS_tot
-
+        rmse = mean_squared_error(y_test, predict_y_unscaled, squared=False)
+        print(rmse)
         print('The R2 of revenue surrogate validation is ', R2)
 
         xmin = list(np.min(x_train_scaled,axis=0))
@@ -289,6 +291,7 @@ class TrainNNSurrogates:
         SS_res = np.sum(np.square(y.transpose() - ypredict))
         R2 = 1 - SS_res/SS_tot
         print(R2)
+
 
         # plot results.
         fig, axs = plt.subplots()

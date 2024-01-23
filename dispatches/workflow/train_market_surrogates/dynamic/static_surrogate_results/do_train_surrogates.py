@@ -25,6 +25,7 @@ def main():
     path_to_data_package = path("dynamic_sweep")
     case_type = "NE"
     model_type = "clustering"
+    method = "kmeans"
 
     if case_type == "NE":
         dispatch_data_path = path_to_data_package / "NE" / "Dispatch_data_NE_Dispatch_whole.csv"
@@ -40,7 +41,7 @@ def main():
         dispatch_data_path = path_to_data_package / "FE" / "Dispatch_generator_data_FE_separate_whole.csv"
         input_data_path = path_to_data_package / "FE" / "sweep_parameters_results_FE_whole.h5"
         case_type = 'FE'
-        num_clusters = 20
+        num_clusters = 15
         num_sims = 400
         input_layer_node = 4
         filter_opt = True
@@ -61,15 +62,20 @@ def main():
 
     if model_type == "clustering":
         print('Start Time Series Clustering')
-        clusteringtrainer = TimeSeriesClustering(simulation_data, num_clusters, filter_opt)
-        method = "kmedoids"
-        clustering_model = clusteringtrainer.clustering_data_kmedoids()
-        clustering_result_path = str(pathlib.Path.cwd().joinpath(f'{case_type}_case_study', f'{case_type}_{num_sims}years_{num_clusters}clusters_{method}.json'))
-        clusteringtrainer.save_clustering_model(clustering_model, fpath = clustering_result_path)
-        # plot results
         if method == "kmedoids":
-            clusteringtrainer.plot_results(clustering_model)
-            # clusteringtrainer.box_plots(clustering_result_path)
+            clusteringtrainer = TimeSeriesClustering(simulation_data, num_clusters, filter_opt)
+            # clustering_model = clusteringtrainer.clustering_data_kmedoids()
+            clustering_result_path = str(pathlib.Path.cwd().joinpath(f'{case_type}_case_study', f'{case_type}_result_{num_sims}years_{num_clusters}clusters_{method}.pkl'))
+            # plot results
+            # clusteringtrainer.save_clustering_model_kmedoids(clustering_model, fpath = clustering_result_path)
+            clusteringtrainer.plot_results_kmedoids(clustering_result_path)
+            clusteringtrainer.box_plots_kmedoids(clustering_result_path)
+
+        if method == "kmeans":
+            clusteringtrainer = TimeSeriesClustering(simulation_data, num_clusters, filter_opt)
+            clustering_result_path = str(pathlib.Path.cwd().joinpath('..', f'{case_type}_case_study', f'{case_type}_{num_sims}years_{num_clusters}clusters_OD.json'))
+            # clusteringtrainer.plot_results_kmeans(clustering_result_path)
+            clusteringtrainer.box_plots_kmeans(clustering_result_path)
         
 
     # TrainNNSurrogates, revenue

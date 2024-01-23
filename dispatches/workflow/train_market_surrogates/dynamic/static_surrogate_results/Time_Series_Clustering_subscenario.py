@@ -261,7 +261,7 @@ class TimeSeriesClustering:
             # use to_time_series_dataset from tslearn to transform the data to the required structure.
             train_data = to_time_series_dataset(day_dataset)
             print(zero_day, full_day)
-            return train_data
+            return train_data, [zero_day, full_day]
 
         # if there is not filter, do not count 0/1 days
         elif self.filter_opt == False:
@@ -291,7 +291,7 @@ class TimeSeriesClustering:
             clustering_model: trained clustering model
         '''
 
-        day_dataset = self._transform_data()
+        day_dataset, day_count = self._transform_data()
         # use to_time_series_datasets to reshape the data for clustering
         train_data = to_time_series_dataset(day_dataset)
         
@@ -315,7 +315,7 @@ class TimeSeriesClustering:
             clustering_model: trained clustering model
         '''
 
-        day_dataset = self._transform_data()
+        day_dataset, day_count = self._transform_data()
         # use to_time_series_datasets to reshape the data for clustering
         train_data = to_sklearn_dataset(day_dataset)
 
@@ -396,8 +396,10 @@ class TimeSeriesClustering:
         return result_path
 
 
-    def plot_results_kmedoids(self, clustering_model):
-        day_dataset = self._transform_data()
+    def plot_results_kmedoids(self, clustering_model_path):
+        with open(clustering_model_path, "rb") as f:
+            clustering_model = pickle.load(f)
+        day_dataset, day_count = self._transform_data()
         train_data = to_sklearn_dataset(day_dataset)
         centers_dict = {}
         for i, cen in enumerate(clustering_model.cluster_centers_):
@@ -411,27 +413,30 @@ class TimeSeriesClustering:
 
             else:
                 label_data_dict[lb].append(train_data[i])
-
+        
         time_length = range(24)
         font1 = {'family' : 'Times New Roman',
         'weight' : 'normal',
         'size'   : 18,
         }
-
-        f,ax1 = plt.subplots(figsize = ((16,6)))
+        
         for idx in range(self.num_clusters):
+            f,ax1 = plt.subplots(figsize = ((16,6)))
             for data in label_data_dict[idx]:
-                ax1.plot(time_length, data, '--', c='g', alpha=0.3)
-
-            ax1.plot(time_length, centers_dict[idx], '-', c='r', alpha=1.0)
+                ax1.plot(time_length, data, '--', c='g', alpha=0.1)
+    
+            ax1.plot(time_length, centers_dict[idx], '-', c='r', alpha=1.0, label = f"median {np.round(np.sum(centers_dict[idx])/24,3)}")
             ax1.set_ylabel('Capacity factor',font = font1)
             ax1.set_xlabel('Time(h)',font = font1)
+            cf = np.round(np.sum(centers_dict[idx])/24, 3)
+            plt.legend()
+            plt.title(f"K-medoids cluster {idx}")
 
             # save the figure
-            folder_path = f'{self.case_type}_case_study/clustering_figures_kmedoids'
+            folder_path = f'{self.simulation_data.case_type}_case_study/clustering_figures_kmedoids'
             if not os.path.isdir(folder_path):
                 os.mkdir(folder_path)
-            figname = str(pathlib.Path.cwd().joinpath(folder_path, f'{self.case_type}_dispatch_kmedoids_cluster_{idx}.jpg'))
+            figname = str(pathlib.Path.cwd().joinpath(folder_path, f'{self.simulation_data.case_type}_dispatch_kmedoids_{self.num_clusters}_cluster_{idx}.jpg'))
             plt.savefig(figname, dpi = 300)
 
         return
@@ -478,7 +483,7 @@ class TimeSeriesClustering:
 
         '''
 
-        train_data = self._transform_data()
+        train_data, day_count = self._transform_data()
 
         with open(result_path, 'r') as f:
             cluster_results = json.load(f)
@@ -497,10 +502,10 @@ class TimeSeriesClustering:
             else:
                 label_data_dict[lb].append(train_data[idx])
 
-        return label_data_dict
+        return label_data_dict, day_count
 
 
-    def plot_results(self, result_path, idx, fpath = None):
+    def plot_results_kmeans(self, result_path, fpath = None):
         
         '''
         Plot the result data. Each plot is the represenatative days and data in the cluster.
@@ -509,42 +514,58 @@ class TimeSeriesClustering:
 
             result_path: the path of json file that has clustering results
 
-            idx: int, the index that of the cluster center
-
             fpath: the path to save the plot
 
         Returns:
 
             None
         '''
-
-        # print('Making clustering plots')
-
-        label_data_dict = self._summarize_results(result_path)
+        # get label and cluster centers
+        label_data_dict, day_count = self._summarize_results(result_path)
         centers_dict = self.get_cluster_centers(result_path)
-
-        time_length = range(24)
-        font1 = {'family' : 'Times New Roman',
-        'weight' : 'normal',
-        'size'   : 18,
+        
+        font1 = {'weight' : 'bold',
+        'size'   : 16,
         }
 
-        f,ax1 = plt.subplots(figsize = ((16,6)))
-        for data in label_data_dict[idx]:
-            ax1.plot(time_length, data, '--', c='g', alpha=0.3)
+        time_length = range(24)
+        # defind 5 dictionaries to store the data.
+        cluster_95_dispatch = {}
+        cluster_5_dispatch = {}
+        cluster_median_dispatch = {}
+        for idx in range(self.num_clusters):
+            sum_dispatch_data = []
+            # sum the 24 hour cf for each day in the cluster.
+            for data in label_data_dict[idx]:
+                sum_dispatch_data.append(np.sum(data))
+            # find out the median
+            median_index = np.argsort(sum_dispatch_data)[len(sum_dispatch_data) // 2]
+            # convert the time series data to index.
+            cluster_median_dispatch[idx] = label_data_dict[idx][median_index]
 
-        ax1.plot(time_length, centers_dict[idx], '-', c='r', alpha=1.0)
-        ax1.set_ylabel('Capacity factor',font = font1)
-        ax1.set_xlabel('Time(h)',font = font1)
-        if fpath == None:
-            figname = f'{self.simulation_data.case_type}_case_study/clustering_figures/{self.simulation_data.case_type}_result_{self.num_clusters}clusters_{self.simulation_data.num_sims}years_cluster{idx}.jpg'
-        else:
-            # if the path is given, save to it. 
-            figname = fpath
-        plt.savefig(figname, dpi = 300)
 
-        return
+        for idx in range(self.num_clusters):
+            f,ax = plt.subplots()
+            for data in label_data_dict[idx]:
+                ax.plot(time_length, data, '--', c='g', alpha=0.05)
+            cf_center = np.sum(centers_dict[idx])/24
+            ax.plot(time_length, centers_dict[idx], '-', c='r', linewidth=3, alpha=1.0, label = f'representative ({round(cf_center,3)})')
+            cf_med = np.sum(cluster_median_dispatch[idx])/24
+            ax.plot(time_length, cluster_median_dispatch[idx], '-', c='k', linewidth=3, alpha=1.0, label = f'median ({round(cf_med,3)})')
+            ax.tick_params(direction = 'in')
+            ax.set_title(f'cluster_{idx}')
+            ax.set_ylabel('Capacity factor',font = font1)
+            ax.set_xlabel('Time(h)',font = font1)
+            ax.legend()
 
+            # save to default path
+            folder_path = f'{self.simulation_data.case_type}_case_study/clustering_figures'
+            if not os.path.isdir(folder_path):
+                os.mkdir(folder_path)
+            figname = str(pathlib.Path.cwd().joinpath(folder_path, f'{self.simulation_data.case_type}_dispatch_kmeans_{self.num_clusters}_cluster_{idx}.jpg'))
+            plt.savefig(figname, dpi = 300)
+
+        return 
 
     def plot_centers(self, result_path, fpath = None):
         
@@ -610,7 +631,7 @@ class TimeSeriesClustering:
         centers = np.array(cluster_results['model_params']['cluster_centers_'])
 
         # read the label results
-        res_dict = self._summarize_results(result_path)
+        res_dict, day_count = self._summarize_results(result_path)
 
         # 5 clusters in one plot
         if self.num_clusters%5 >= 1:
@@ -685,3 +706,133 @@ class TimeSeriesClustering:
         plt.savefig(figname,dpi =300)
         
         return outlier_count
+
+
+    def box_plots_kmedoids(self, clustering_model_path):
+        '''
+        plot the clustering results, clusters are sorted by capacity factors.
+        '''
+        # read the clustering model
+        with open(clustering_model_path, "rb") as f:
+            clustering_model = pickle.load(f)
+        
+        # read cluster centers
+        centers_dict = {}
+        for i, cen in enumerate(clustering_model.cluster_centers_):
+            centers_dict[i] = cen
+
+        # calculate center capacity factors
+        center_cf_dict = {}
+        for i in centers_dict:
+            center_cf_dict[i] = np.sum(centers_dict[i])/24
+
+        # sort the center_cf_dict by the fapacity factor
+        sorted_center_cf_list = sorted(center_cf_dict.items(), key=lambda x: x[1], reverse=False)
+        sorted_center_cf_dict = {}
+        for i in sorted_center_cf_list:    # the i is (key, value) pair
+            sorted_center_cf_dict[i[0]] = i[1]
+
+        # create a dict, key = cluster index, value = data belongs to the dict.
+        day_dataset, day_count = self._transform_data()
+        train_data = to_sklearn_dataset(day_dataset)
+        label_data_dict = {}
+        for i, lb in enumerate(clustering_model.labels_):
+            if lb not in label_data_dict:
+                label_data_dict[lb] = []
+                label_data_dict[lb].append(train_data[i])
+            else:
+                label_data_dict[lb].append(train_data[i])
+
+        # plot box plot
+        fig_res_list = [np.zeros(day_count[0])]
+        fig_label = [f"min \n {np.round(day_count[0]/self.simulation_data.num_sims/366*100, 2)}%"]
+        cf_center = [0]
+        for i in sorted_center_cf_dict:
+            percentage = np.round(len(label_data_dict[i])/self.simulation_data.num_sims/366*100,2)
+            fig_label.append(f"{i} \n {percentage}%")
+            res_list = []
+            for j in label_data_dict[i]:
+                #calculate the capacity factor
+                day_cf = sum(j)/24
+                res_list.append(day_cf)
+            fig_res_list.append(np.array(res_list).flatten())
+            cf_center.append([sorted_center_cf_dict[i]])
+        
+        fig_res_list.append(np.ones(day_count[1]))
+        fig_label.append(f"max \n {np.round(day_count[1]/self.simulation_data.num_sims/366*100, 2)}%")
+        cf_center.append(1)
+       
+        font1 = {
+        'weight' : 'bold',
+        'size'   : 16,
+        }
+        f,ax = plt.subplots(figsize = (15,6))
+        ax.boxplot(fig_res_list,labels = fig_label, medianprops = {'color':'g'})
+        ax.boxplot(cf_center, labels = fig_label,medianprops = {'color':'r'})
+        ax.set_ylabel('capacity_factor', font = font1)
+        ax.set_title(f'kmedoids, {self.num_clusters} clusters', font = font1)
+        figname = os.path.join(f"{self.simulation_data.case_type}_case_study","clustering_figures_kmedoids",f"{self.simulation_data.case_type}_box_plot_{self.num_clusters}clusters_kmedoid.jpg")
+        # plt.savefig will not overwrite the existing file
+        plt.savefig(figname,dpi =300)
+
+        return 
+    
+
+    def box_plots_kmeans(self, clustering_model_path):
+        '''
+        plot the clustering results, clusters are sorted by capacity factors.
+        '''
+        # read cluster centers
+        centers_dict = self.get_cluster_centers(clustering_model_path)
+
+        # calculate center capacity factors
+        center_cf_dict = {}
+        for i in centers_dict:
+            center_cf_dict[i] = np.sum(centers_dict[i])/24
+
+        # sort the center_cf_dict by the fapacity factor
+        sorted_center_cf_list = sorted(center_cf_dict.items(), key=lambda x: x[1], reverse=False)
+        sorted_center_cf_dict = {}
+        for i in sorted_center_cf_list:    # the i is (key, value) pair
+            sorted_center_cf_dict[i[0]] = i[1]
+
+        # create a dict, key = cluster index, value = data belongs to the dict.
+        label_data_dict, day_count = self._summarize_results(clustering_model_path)
+
+        # plot box plot
+        # zero capacity days
+        fig_res_list = [np.zeros(day_count[0])]
+        fig_label = [f"min \n {np.round(day_count[0]/self.simulation_data.num_sims/366*100, 1)}%"]
+        cf_center = [0]
+
+        for i in sorted_center_cf_dict:
+            percentage = np.round(len(label_data_dict[i])/self.simulation_data.num_sims/366*100,1)
+            fig_label.append(f"{i} \n {percentage}%")
+            res_list = []
+            for j in label_data_dict[i]:
+                #calculate the capacity factor
+                day_cf = sum(j)/24
+                res_list.append(day_cf)
+            fig_res_list.append(np.array(res_list).flatten())
+            cf_center.append([sorted_center_cf_dict[i]])
+            # print(sorted_center_cf_dict[i], np.median(np.array(res_list).flatten()))
+        # full capacity days
+        fig_res_list.append(np.ones(day_count[1]))
+        fig_label.append(f"max \n {np.round(day_count[1]/self.simulation_data.num_sims/366*100, 1)}%")
+        cf_center.append(1)
+
+        font1 = {
+        'weight' : 'bold',
+        'size'   : 16,
+        }
+        f,ax = plt.subplots(figsize = (15,6))
+        ax.boxplot(fig_res_list, labels = fig_label, medianprops = {'color':'g'})
+        ax.boxplot(cf_center, labels = fig_label, medianprops = {'color':'r'})
+        ax.set_ylabel('Capacity Factor', font = font1)
+        ax.tick_params(axis='both', which='minor', labelsize=15)
+        figname = os.path.join(f"{self.simulation_data.case_type}_case_study","clustering_figures_kmeans",f"{self.simulation_data.case_type}_box_plot_{self.num_clusters}clusters_kmeans.jpg")
+        # ax.set_title(f'kmeans, {self.num_clusters} clusters', font = font1)
+        # plt.savefig will not overwrite the existing file
+        plt.savefig(figname,dpi =300)
+
+        return 

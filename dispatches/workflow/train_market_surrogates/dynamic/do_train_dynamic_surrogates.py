@@ -24,7 +24,7 @@ def main():
     # for NE case study
     path_to_data_package = path("dynamic_sweep")
     case_type = "NE"
-    model_id = "dispatch"
+    model_id =  "clustering"
     num_clusters = 30
     num_sims = 192
 
@@ -51,7 +51,8 @@ def main():
         clustering_result_path = str(pathlib.Path.cwd().joinpath(f'{case_type}_case_study', f'{case_type}_{num_sims}years_{num_clusters}clusters_OD.json'))
         # clusteringtrainer.save_clustering_model(clustering_model, fpath = clustering_result_path)
         # plot results
-        clusteringtrainer.plot_results(clustering_result_path)
+        clusteringtrainer._transform_data()
+        # clusteringtrainer.plot_results(clustering_result_path)
         # clusteringtrainer.box_plots(clustering_result_path)
     
     elif model_id == "revenue":
