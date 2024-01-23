@@ -222,6 +222,7 @@ mp_wind_battery_bid = MultiPeriodWindBattery(
     wind_pmax_mw=wind_pmax,
     battery_pmax_mw=battery_pmax,
     battery_energy_capacity_mwh=battery_energy_capacity,
+    mode = "Bid"
 )
 
 backcaster = Backcaster(historical_da_prices, historical_rt_prices)
@@ -257,6 +258,7 @@ mp_wind_battery_track = MultiPeriodWindBattery(
     wind_pmax_mw=wind_pmax,
     battery_pmax_mw=battery_pmax,
     battery_energy_capacity_mwh=battery_energy_capacity,
+    model = "Track"
 )
 
 # create a `Tracker` using`mp_wind_battery`
@@ -273,6 +275,7 @@ mp_wind_battery_track_project = MultiPeriodWindBattery(
     wind_pmax_mw=wind_pmax,
     battery_pmax_mw=battery_pmax,
     battery_energy_capacity_mwh=battery_energy_capacity,
+    model = "Track"
 )
 
 # create a `Tracker` using`mp_wind_battery`

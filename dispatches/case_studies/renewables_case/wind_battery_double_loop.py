@@ -106,6 +106,7 @@ class MultiPeriodWindBattery:
         wind_pmax_mw=200.0,
         battery_pmax_mw=25.0,
         battery_energy_capacity_mwh=100.0,
+        mode = "Bid"
     ):
         """Initialize a multiperiod wind battery model object for double loop.
 
@@ -129,9 +130,28 @@ class MultiPeriodWindBattery:
         self._wind_pmax_mw = wind_pmax_mw
         self._battery_pmax_mw = battery_pmax_mw
         self._battery_energy_capacity_mwh = battery_energy_capacity_mwh
+        self.mode = mode
 
         # a list that holds all the result in pd DataFrame
         self.result_list = []
+        self._check_model()
+
+    def _check_model(self):
+        """
+        Check if the input param "mode" is correct
+
+        Args:
+            None
+        
+        Returns:
+            None
+        """
+        if self.mode not in ["Bid", "bid", "Track", "track"]:
+            raise ValueError(
+                "The mode of operation is either bid or track, "
+                + "but {} was given.".format(self.mode)
+            )
+
 
     def populate_model(self, b, horizon):
         """Create a wind-battery model using the `MultiPeriod` package.
@@ -174,7 +194,10 @@ class MultiPeriodWindBattery:
         for (t, b) in enumerate(active_blks):
             blk.P_T[t] = (b.fs.splitter.grid_elec[0] + b.fs.battery.elec_out[0]) * 1e-3
             blk.wind_waste[t] = (b.fs.windpower.system_capacity * b.fs.windpower.capacity_factor[0] - b.fs.windpower.electricity[0]) * 1e-3
-            blk.tot_cost[t] = b.fs.windpower.op_total_cost + b.fs.battery.op_cost + 1e-5 * b.fs.battery.elec_out[0] - 1e-6 * b.fs.battery.elec_in[0]
+            if self.mode in ["Bid", "bid"]:
+                blk.tot_cost[t] = b.fs.windpower.op_total_cost + b.fs.battery.op_cost
+            if self.mode in ["Track", "track"]:
+                blk.tot_cost[t] = b.fs.windpower.op_total_cost + b.fs.battery.op_cost + 1e-5 * b.fs.battery.elec_out[0] - 1e-6 * b.fs.battery.elec_in[0]
         return
 
     def update_model(self, b, realized_soc, realized_energy_throughput):
