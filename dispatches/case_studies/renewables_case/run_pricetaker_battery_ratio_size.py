@@ -21,7 +21,7 @@ from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-from dispatches.case_studies.renewables_case.wind_battery_LMP import wind_battery_optimize
+from dispatches.case_studies.renewables_case.wind_battery_LMP import wind_battery_optimize, record_results
 from dispatches.case_studies.renewables_case.RE_flowsheet import default_input_params, market
 
 usage = "Run pricetaker optimization with battery size and duration."
@@ -71,7 +71,7 @@ if not file_dir.exists():
 
 build_add_wind = True # if False, wind size is fixed. Either way, all wind capacity is part of capital cost
 
-def run_design(wind_size, battery_ratio, duration = 4):
+def run_design(wind_size, battery_ratio, duration = duration):
     input_params = default_input_params.copy()
     input_params["design_opt"] = False
     input_params["extant_wind"] = True
@@ -92,7 +92,7 @@ def run_design(wind_size, battery_ratio, duration = 4):
 
     print(f"Running: {wind_size} {battery_ratio} {build_add_wind}")
     des_res = wind_battery_optimize(
-        n_time_points=8736, 
+        n_time_points=8784, 
         # n_time_points=len(lmps_df), 
         input_params=input_params, verbose=True)
     # res = {**input_params, **des_res[0]}
@@ -104,6 +104,9 @@ def run_design(wind_size, battery_ratio, duration = 4):
     res.pop("pyo_model")
     with open(file_dir / f"result_{market}_wind_{wind_size}_battery_{battery_ratio}_hour_{duration}.json", 'w') as f:
         json.dump(res, f)
+    hourly_res_dict = record_results(des_res)
+    with open (file_dir / f"hourly_result_{market}_wind_{wind_size}_battery_{battery_ratio}_hour_{duration}.json", 'w') as f:
+        json.dump(hourly_res_dict, f)
     print(f"Finished: {wind_size} {battery_ratio}")
     
     return res

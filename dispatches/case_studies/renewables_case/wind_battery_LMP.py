@@ -223,12 +223,12 @@ def wind_battery_optimize(n_time_points, input_params, verbose=False):
         blk_wind = blk.fs.windpower
         blk_battery = blk.fs.battery
         
-        # add operating costs
+        # add operating costs, days in a year = 366
         blk_wind.op_total_cost = Expression(
-            expr=m.wind_system_capacity * blk_wind.op_cost / 8760
+            expr=m.wind_system_capacity * blk_wind.op_cost / 8784
         )
         blk_battery.op_total_cost = Expression(
-            expr=m.battery_system_capacity * blk_battery.op_cost / 8760
+            expr=m.battery_system_capacity * blk_battery.op_cost / 8784
         )
 
         blk.lmp_signal = pyo.Param(default=0, mutable=True)
@@ -249,10 +249,15 @@ def wind_battery_optimize(n_time_points, input_params, verbose=False):
     m.batt_cap_cost_kw = pyo.Param(default=batt_cap_cost_kw, mutable=True)
     m.batt_cap_cost_kwh = pyo.Param(default=batt_cap_cost_kwh, mutable=True)
 
-    n_weeks = n_time_points / (7 * 24)
-    m.total_elec_output = Expression(expr= sum([blk.elec_output for blk in blks])* 52 / n_weeks)
-    m.annual_elec_revenue = Expression(expr = sum([blk.revenue for blk in blks])* 52 / n_weeks)
-    m.annual_revenue = Expression(expr=sum([blk.profit for blk in blks]) * 52 / n_weeks)
+    # n_weeks = n_time_points / (7 * 24)
+    # m.total_elec_output = Expression(expr= sum([blk.elec_output for blk in blks])* 52 / n_weeks)
+    # m.annual_elec_revenue = Expression(expr = sum([blk.revenue for blk in blks])* 52 / n_weeks)
+    # m.annual_revenue = Expression(expr=sum([blk.profit for blk in blks]) * 52 / n_weeks)
+
+    # Xinhe's update, do not use weekly-based counts.   
+    m.total_elec_output = Expression(expr= sum([blk.elec_output for blk in blks]))
+    m.annual_elec_revenue = Expression(expr = sum([blk.revenue for blk in blks]))
+    m.annual_revenue = Expression(expr=sum([blk.profit for blk in blks]))
     m.NPV = Expression(
         expr=-(
             m.wind_cap_cost * m.wind_system_capacity
@@ -303,6 +308,7 @@ def record_results(mp_wind_battery):
 
     annual_revenue = value(m.annual_revenue)
     npv = value(m.NPV)
+    total_elec_output = value(m.total_elec_output)
 
     print("wind mw", wind_cap)
     print("batt mw", batt_cap)
@@ -310,19 +316,19 @@ def record_results(mp_wind_battery):
     print("annual rev", annual_revenue)
     print("npv", npv)
 
-    return (
-        soc,
-        wind_gen,
-        batt_to_grid,
-        wind_to_grid,
-        wind_to_batt,
-        elec_revenue,
-        lmp,
-        wind_cap,
-        batt_cap,
-        annual_revenue,
-        npv,
-    )
+    result_dict = {
+        'soc' : soc,
+        'wind_gen' : wind_gen,
+        'batt_to_grid' : batt_to_grid,
+        'wind_to_grid' : wind_to_grid,
+        'wind_to_batt' : wind_to_batt,
+        'total_elec_output': total_elec_output,
+        'elec_revenue' : elec_revenue,
+        'annual_revenue' : annual_revenue,
+        'npv' : npv,
+    }
+
+    return result_dict
 
 
 def plot_results(
