@@ -190,14 +190,15 @@ class MultiPeriodWindBattery:
         blk.P_T = pyo.Expression(blk.HOUR)
         blk.tot_cost = pyo.Expression(blk.HOUR)
         blk.wind_waste_penalty = pyo.Param(default=0, mutable=True)
+        blk.storage_energy_price = pyo.Param(default = 10, mutable=True)
         blk.wind_waste = pyo.Expression(blk.HOUR)
         for (t, b) in enumerate(active_blks):
             blk.P_T[t] = (b.fs.splitter.grid_elec[0] + b.fs.battery.elec_out[0]) * 1e-3
             blk.wind_waste[t] = (b.fs.windpower.system_capacity * b.fs.windpower.capacity_factor[0] - b.fs.windpower.electricity[0]) * 1e-3
             if self.mode in ["Bid", "bid"]:
-                blk.tot_cost[t] = b.fs.windpower.op_total_cost + b.fs.battery.op_cost
+                blk.tot_cost[t] = b.fs.windpower.op_total_cost + b.fs.battery.var_cost + blk.wind_waste_penalty * blk.wind_waste[t]
             if self.mode in ["Track", "track"]:
-                blk.tot_cost[t] = b.fs.windpower.op_total_cost + b.fs.battery.op_cost + 1e-5 * b.fs.battery.elec_out[0] - 1e-6 * b.fs.battery.elec_in[0]
+                blk.tot_cost[t] = b.fs.windpower.op_total_cost + b.fs.battery.var_cost - b.fs.battery.state_of_charge[0] * 1e-3 * blk.storage_energy_price
         return
 
     def update_model(self, b, realized_soc, realized_energy_throughput):

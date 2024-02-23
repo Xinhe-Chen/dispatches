@@ -183,11 +183,13 @@ def summarize_rt_revenue(sim_id, result_dir, gen_detail, bus_name, gen_name, cap
         df["LMP"] = pd.DataFrame(np.clip(lmp_array, 0, 500))
  
     df["Total Revenue"] = df["Dispatch"] * df["LMP"]
+    avg_LMP = df["LMP"].mean()
 
     df = df[["Dispatch", "Dispatch DA", "Total Revenue"]]
 
     summary = df.sum().to_dict()
     summary["sim_id"] = sim_id
+    summary["average_LMP"] = avg_LMP
     
     return summary
 

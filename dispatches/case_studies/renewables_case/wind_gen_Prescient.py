@@ -17,10 +17,10 @@ from dispatches_sample_data import rts_gmlc
 
 current_path = os.getcwd()
 rtsgmlc_path = rts_gmlc.source_data_path
-shortfall = 200
+shortfall = 500
 day_ahead_horizon = 36
 real_time_horizon = 4
-output_path = os.path.join(current_path,f"new_Benchmark_single_wind_gen_sim_15_{shortfall}_rth_{real_time_horizon}")
+output_path = os.path.join(current_path,f"Benchmark_wind_gen_prescient_2024")
 
 # default some options
 prescient_options = {
@@ -33,6 +33,7 @@ prescient_options = {
         "start_date":"01-01-2020",
         "num_days":366,
         "sced_horizon":real_time_horizon,
+        "run_sced_with_persistent_forecast_errors": True,
         "ruc_mipgap":0.01,
 	"deterministic_ruc_solver": "gurobi",
 	"deterministic_ruc_solver_options" : {"threads":4, "heurstrategy":2, "cutstrategy":3, "symmetry":2, "maxnode":1000},
@@ -54,8 +55,8 @@ prescient_options = {
         "output_ruc_solutions": False,
         "write_deterministic_ruc_instances": False,
         "write_sced_instances": False,
-        "print_sced":False
-        
+        "print_sced":False,
+        "output_solver_logs": False,
         }
 
 Prescient().simulate(**prescient_options)

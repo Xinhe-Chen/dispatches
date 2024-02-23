@@ -19,15 +19,15 @@ default_wind_bus = 303
 bus_name = "Caesar"
 wind_generator = "303_WIND_1"
 start_date = "01-01-2020"
-n_days = 7
+n_days = 366
 shortfall = 500                                     # 500 $/MWh
 reserve_factor = 0.15                               # 15% reserves
 rts_gmlc_data_dir = rts_gmlc.source_data_path
 day_ahead_horizon = 36
-real_time_horizon = duration
-tracking_horizon = duration
+real_time_horizon = 2
+tracking_horizon = 2
 n_tracking_hour = 1
-sim_name = f"test_new_cost_func"
+sim_name = f"RT_only_with_new_cost_func_sim"
  
 solvers_list = ["gurobi_direct", "xpress_direct", "cbc"]
 
