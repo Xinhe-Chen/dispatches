@@ -79,19 +79,19 @@ compressor_dp = 24.01
 max_pressure_bar = 700
 
 # load pre-compiled RTS-GMLC output data
-df = pd.read_csv(re_case_dir / "data" / "Wind_Thermal_Dispatch.csv")
+df = pd.read_csv(re_case_dir / "data" / "303_Wind_Dispatch.csv")
 df.index = pd.to_datetime(df["DateTime"])
 
-# drop indices not in original data set
-start_date = pd.Timestamp('2020-01-02 00:00:00')
-ix = pd.date_range(start=start_date, 
-                    end=start_date
-                    + pd.offsets.DateOffset(days=365)
-                    - pd.offsets.DateOffset(hours=1),
-                    freq='1H')
-ix = ix[(ix.day != 29) | (ix.month != 2)]
+# # drop indices not in original data set
+# start_date = pd.Timestamp('2020-01-02 00:00:00')
+# ix = pd.date_range(start=start_date, 
+#                     end=start_date
+#                     + pd.offsets.DateOffset(days=365)
+#                     - pd.offsets.DateOffset(hours=1),
+#                     freq='1H')
+# ix = ix[(ix.day != 29) | (ix.month != 2)]
 
-df = df[df.index.isin(ix)]
+# df = df[df.index.isin(ix)]
 
 bus = "303"
 market = "DA"
@@ -114,7 +114,7 @@ else:
 wind_capacity_factors = {t:
                             {'wind_resource_config': {
                                 'capacity_factor': 
-                                    [wind_cfs[t]]}} for t in range(n_timesteps)}
+                                    [wind_cfs[t]]}} for t in range(len(wind_cfs))}
 # simple financial assumptions
 discount_rate = 0.08                                    # discount rate
 N = 30                                                  # years
