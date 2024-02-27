@@ -33,7 +33,7 @@ with open(re_case_dir/"wind_battery_cost_parameter.json", "rb") as f:
 # only need to change the year and scenario here, default, 2023, moderate, 4hr battery.
 year = 2023
 scenario = "moderate"
-duration = 0
+duration = 4
 duration_list = [2, 4, 6, 8, 10] 
 arg_duration = int(duration/2 - 1)
 

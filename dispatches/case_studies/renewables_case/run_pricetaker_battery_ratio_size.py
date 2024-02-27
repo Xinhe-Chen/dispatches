@@ -59,13 +59,13 @@ battery_ratio = options.battery_ratio
 duration = options.duration
 year = options.year
 
-lmps_df = pd.read_parquet(Path(__file__).parent / "data" / "303_LMPs_15_reserve_500_shortfall.parquet")
-lmps = lmps_df['LMP DA'].values
+lmps_df = pd.read_csv(Path(__file__).parent / "data" / "303_LMPs_15_reserve_500_shortfall.csv")
+lmps = lmps_df['LMP'].values
 lmps[lmps>500] = 500
 default_input_params['DA_LMPs'] = lmps # even we use rt lmp signals, we call it DA_LMPs to simplify the work.
 
 # TempfileManager.tempdir = '/tmp/scratch'
-file_dir = Path(__file__).parent / f"wind_battery_pricetaker_rerun_{year}"
+file_dir = Path(__file__).parent / f"wind_battery_pricetaker_new_lmp_{year}/duration_{duration}"
 if not file_dir.exists():
     os.mkdir(file_dir)
 
@@ -110,3 +110,10 @@ def run_design(wind_size, battery_ratio, duration = duration):
     print(f"Finished: {wind_size} {battery_ratio}")
     
     return res
+
+def main():
+    wind_size = 847
+    run_design(wind_size, battery_ratio)
+
+if __name__ == "__main__":
+    main()
