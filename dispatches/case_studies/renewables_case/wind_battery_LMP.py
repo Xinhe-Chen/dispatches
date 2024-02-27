@@ -268,7 +268,7 @@ def wind_battery_optimize(n_time_points, input_params, verbose=False):
     )
     m.obj = pyo.Objective(expr=-m.NPV * 1e-5)
 
-    opt = pyo.SolverFactory("cbc")
+    opt = pyo.SolverFactory("ipopt")
     opt.solve(m, tee=verbose)
 
     return mp_wind_battery
