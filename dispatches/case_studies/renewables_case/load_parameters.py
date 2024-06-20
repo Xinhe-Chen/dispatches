@@ -33,7 +33,7 @@ with open(re_case_dir/"wind_battery_cost_parameter.json", "rb") as f:
 # only need to change the year and scenario here, default, 2023, moderate, 4hr battery.
 year = 2023
 scenario = "moderate"
-duration = 2
+duration = 10
 duration_list = [2, 4, 6, 8, 10] 
 arg_duration = int(duration/2 - 1)
 
@@ -116,7 +116,7 @@ wind_capacity_factors = {t:
                                 'capacity_factor': 
                                     [wind_cfs[t]]}} for t in range(len(wind_cfs))}
 # simple financial assumptions
-discount_rate = 0.08                                    # discount rate
+discount_rate = 0.05                                    # discount rate
 N = 30                                                  # years
 PA = ((1+discount_rate)**N - 1)/(discount_rate*(1+discount_rate)**N)            # present value / annuity = 1 / CRF
 
