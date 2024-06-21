@@ -426,4 +426,4 @@ def run_exhaustive_enumeration(pem_capex=400, market="DA"):
 
 
 if __name__ == '__main__':
-    run_exhaustive_enumeration(pem_capex=1200, market="RT")
+    run_exhaustive_enumeration(pem_capex=1200, market="DA-RT")
