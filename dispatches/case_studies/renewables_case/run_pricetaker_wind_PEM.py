@@ -93,18 +93,18 @@ if __name__ == "__main__":
     if not file_dir.exists():
         os.mkdir(file_dir)
 
-    run_design(2.2, 0.2)
+    res = run_design(2.0, 0.1)
     # exit()
 
-    print(f"Writing to '{file_dir}/{file_name}'")
-    h2_prices = np.linspace(2, 3, 5)
-    pem_ratio = np.append(np.linspace(0, 1, 5), None)
-    # h2_prices = np.flip(h2_prices)
-    # price_cap = np.flip(price_cap)
-    inputs = product(h2_prices, pem_ratio)
+    # print(f"Writing to '{file_dir}/{file_name}'")
+    # h2_prices = np.linspace(2, 3, 5)
+    # pem_ratio = np.append(np.linspace(0, 1, 5), None)
+    # # h2_prices = np.flip(h2_prices)
+    # # price_cap = np.flip(price_cap)
+    # inputs = product(h2_prices, pem_ratio)
 
-    with mp.Pool(processes=35) as p:
-        res = p.starmap(run_design, inputs)
+    # with mp.Pool(processes=35) as p:
+    #     res = p.starmap(run_design, inputs)
 
     df = pd.DataFrame(res)
     df.to_csv(file_dir / f"{file_name}.csv")
