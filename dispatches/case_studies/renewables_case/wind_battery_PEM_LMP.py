@@ -208,7 +208,8 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ve
     mp_battery_wind_pem = MultiPeriodModel(n_time_points=time_points,
                                            process_model_func=partial(wind_battery_pem_mp_block, input_params=input_params, verbose=verbose),
                                            linking_variable_func=wind_battery_pem_variable_pairs,
-                                           periodic_variable_func=wind_battery_pem_periodic_variable_pairs)
+                                           periodic_variable_func=wind_battery_pem_periodic_variable_pairs,
+                                           outlvl=idaeslog.WARNING)
 
     mp_battery_wind_pem.build_multi_period_model(input_params['wind_resource'])
 
