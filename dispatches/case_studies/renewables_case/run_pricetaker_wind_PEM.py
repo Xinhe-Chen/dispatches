@@ -19,10 +19,36 @@ from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from argparse import ArgumentParser
+import json
 from dispatches.case_studies.renewables_case.wind_battery_PEM_LMP import wind_battery_pem_optimize
 from dispatches.case_studies.renewables_case.RE_flowsheet import default_input_params, market
 
 market = "RT"
+usage = "Solve wind_PEM price-taker model."
+parser = ArgumentParser(usage)
+parser.add_argument(
+    "--PEM_ratio",
+    dest="PEM_ratop",
+    help="Set PEM power as a ratio to the wind farm",
+    action="store",
+    type=float,
+    default=0.1,
+)
+
+parser.add_argument(
+    "--H2_price",
+    dest="H2_price",
+    help="Set H2 selling price in $/MWh.",
+    action="store",
+    type=float,
+    default=1.0,
+)
+options = parser.parse_args()
+
+PEM_ratio = options.PEM_ratio
+H2_price = options.H2_price
+
 
 def run_design(h2_price, pem_ratio):
     """
@@ -88,12 +114,14 @@ if __name__ == "__main__":
 
 
     # TempfileManager.tempdir = '/tmp/scratch'
-    file_name = f"wind_PEM_{market}_{shortfall}"
+    file_name = f'wind_PEM_PT_{H2_price}_{PEM_ratio}.json'
     file_dir = Path(__file__).parent / "wind_PEM"
     if not file_dir.exists():
         os.mkdir(file_dir)
 
-    res = run_design(2.0, 0.1)
+    res = run_design(H2_price, PEM_ratio)
+
+    # Darice codes 
     # exit()
 
     # print(f"Writing to '{file_dir}/{file_name}'")
@@ -106,5 +134,11 @@ if __name__ == "__main__":
     # with mp.Pool(processes=35) as p:
     #     res = p.starmap(run_design, inputs)
 
-    df = pd.DataFrame(res)
-    df.to_csv(file_dir / f"{file_name}.csv")
+    # df = pd.DataFrame(res)
+    # df.to_csv(file_dir / f"{file_name}.csv")
+
+    # Xinhe codes
+    fpath = file_dir / file_name
+    with open(fpath, 'wb') as f:
+        json.dump(res, f)
+    

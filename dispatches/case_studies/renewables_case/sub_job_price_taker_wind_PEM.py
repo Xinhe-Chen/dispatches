@@ -19,9 +19,8 @@ this_file_path = os.path.dirname(os.path.realpath(__file__))
 
 def submit_job(
     sim_id,
-    wind_pmax=0,
-    PEM_pmax=0,
-    h2_price=0,
+    PEM_ratio=0.1,
+    H2_price=0.8,
 ):
 
     # create a directory to save job scripts
@@ -41,7 +40,7 @@ def submit_job(
             + "export LD_LIBRARY_PATH=~/.conda/envs/regen/lib:$LD_LIBRARY_PATH \n"
             + "module load gurobi/9.5.1\n"
             + "module load ipopt/3.14.2 \n"
-            + f"python ./run_pricetaker_wind_PEM.py"
+            + f"python ./run_pricetaker_wind_PEM.py --PEM_ratio {PEM_ratio} --H2_price {H2_price}"
         )
 
     os.system(f"qsub {file_name}")
@@ -49,4 +48,6 @@ def submit_job(
 
 if __name__ == "__main__":
     sim_id = 0
-    submit_job(sim_id)
+    PEM_ratio = 0.1
+    H2_price = 0.8
+    submit_job(sim_id, PEM_ratio, H2_price)
