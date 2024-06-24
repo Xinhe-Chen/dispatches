@@ -29,7 +29,7 @@ usage = "Solve wind_PEM price-taker model."
 parser = ArgumentParser(usage)
 parser.add_argument(
     "--PEM_ratio",
-    dest="PEM_ratop",
+    dest="PEM_ratio",
     help="Set PEM power as a ratio to the wind farm",
     action="store",
     type=float,
@@ -136,9 +136,3 @@ if __name__ == "__main__":
 
     # df = pd.DataFrame(res)
     # df.to_csv(file_dir / f"{file_name}.csv")
-
-    # Xinhe codes
-    fpath = file_dir / file_name
-    with open(fpath, 'wb') as f:
-        json.dump(res, f)
-    
