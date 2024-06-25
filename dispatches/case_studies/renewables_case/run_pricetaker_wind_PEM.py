@@ -24,7 +24,7 @@ import json
 from dispatches.case_studies.renewables_case.wind_battery_PEM_LMP import wind_battery_pem_optimize
 from dispatches.case_studies.renewables_case.RE_flowsheet import default_input_params, market
 
-market = "RT"
+market = "DA"
 usage = "Solve wind_PEM price-taker model."
 parser = ArgumentParser(usage)
 parser.add_argument(
@@ -100,7 +100,7 @@ if __name__ == "__main__":
         default_input_params['DA_LMPs'] = wind_df['LMP DA'].values
         wind_cfs = wind_df[f"303_WIND_1-DACF"].values
     elif market == "Both":
-        default_input_params['DA_LMPs'] = np.max((wind_df['LMP DA'].values, wind_df['LMP DA'].values), axis=0)
+        default_input_params['DA_LMPs'] = np.max((wind_df['LMP DA'].values, wind_df['LMP'].values), axis=0)
         wind_cfs = wind_df[f"303_WIND_1-RTCF"].values
     elif market == "RT":
         default_input_params['DA_LMPs'] =  wind_df['LMP'].values
