@@ -21,6 +21,7 @@ def submit_job(
     sim_id,
     PEM_ratio=0.1,
     H2_price=0.8,
+    market = 'DA'
 ):
 
     # create a directory to save job scripts
@@ -28,7 +29,7 @@ def submit_job(
     if not os.path.isdir(job_scripts_dir):
         os.mkdir(job_scripts_dir)
 
-    file_name = os.path.join(job_scripts_dir, f"wind_PEM_price_taker_sim_{sim_id}.sh")
+    file_name = os.path.join(job_scripts_dir, f"wind_PEM_price_taker_{market}_sim_{sim_id}.sh")
     with open(file_name, "w") as f:
         f.write(
             "#!/bin/bash\n"
@@ -50,6 +51,7 @@ if __name__ == "__main__":
     sim_id = 0
     pem_ratio_range = [i / 100 for i in range(5, 51, 5)] 
     h2_price_range = [0.75, 1, 1.25, 1.5, 1.75, 2]
+    market = 'DA'
     for i in h2_price_range:
         for j in pem_ratio_range:
             sim_id += 1
