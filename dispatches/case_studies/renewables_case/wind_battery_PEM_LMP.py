@@ -401,6 +401,7 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ve
         "profit": sum(profit) * 52 / n_weeks,
         "NPV": value(m.NPV),
         "NPV_ann": value(m.NPV_ann)
+        "solver_stat": str(ipopt_res.solver.termination_condition)
     }
     print(design_res)
 
