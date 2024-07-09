@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from argparse import ArgumentParser
 import json
-from dispatches.case_studies.renewables_case.wind_battery_PEM_LMP import wind_battery_pem_optimize
+from dispatches.case_studies.renewables_case.wind_battery_PEM_LMP_new import wind_battery_pem_optimize
 from dispatches.case_studies.renewables_case.RE_flowsheet import default_input_params, market
 
 market = "DA"
@@ -77,7 +77,7 @@ def run_design(h2_price, pem_ratio):
         print(f"Already complete: {h2_price} {pem_ratio}")
         return res
     print(f"Running: {h2_price} {pem_ratio}")
-    des_res = wind_battery_pem_optimize(
+    des_res, solver_res, df_res = wind_battery_pem_optimize(
         # time_points=24 * 7, 
         time_points=len(wind_cfs), 
         input_params=input_params, verbose=False, plot=False)
@@ -89,13 +89,15 @@ def run_design(h2_price, pem_ratio):
     res.pop("pyo_model")
     with open(file_dir / f"result_{market}_{h2_price}_{pem_ratio}.json", 'w') as f:
         json.dump(res, f)
+    df_res.to_csv(file_dir / f"wind_pem_{market}_{input_params['pem_mw']}_{H2_price}.csv")
     print(f"Finished: {h2_price} {pem_ratio}")
     return res
 
 if __name__ == "__main__":
     shortfall = 1000
     wind_df = pd.read_parquet(Path(__file__).parent / "data" / f"303_LMPs_15_reserve_{shortfall}_shortfall.parquet")
-
+    da_res_df = pd.read_csv(Path(__file__).parent / "wind_PEM" / "DA" / f"wind_pem_DA_{PEM_ratio*default_input_params["wind_mw"]}_{H2_price}.csv")
+    DA_dispatch = da_res_df["wind_out"].values
     if market == "DA":
         default_input_params['DA_LMPs'] = wind_df['LMP DA'].values
         wind_cfs = wind_df[f"303_WIND_1-DACF"].values
@@ -104,6 +106,10 @@ if __name__ == "__main__":
         wind_cfs = wind_df[f"303_WIND_1-RTCF"].values
     elif market == "RT":
         default_input_params['DA_LMPs'] =  wind_df['LMP'].values
+        wind_cfs = wind_df[f"303_WIND_1-RTCF"].values
+    elif market == "DA-RT":
+        default_input_params['DA_LMPs'] = {"DA": wind_df['LMP DA'].values, "RT": wind_df['LMP'].values}
+        default_input_params["DA_dispatch"] = DA_dispatch
         wind_cfs = wind_df[f"303_WIND_1-RTCF"].values
 
     wind_capacity_factors = {t:
@@ -120,19 +126,3 @@ if __name__ == "__main__":
         os.mkdir(file_dir)
 
     res = run_design(H2_price, PEM_ratio)
-
-    # Darice codes 
-    # exit()
-
-    # print(f"Writing to '{file_dir}/{file_name}'")
-    # h2_prices = np.linspace(2, 3, 5)
-    # pem_ratio = np.append(np.linspace(0, 1, 5), None)
-    # # h2_prices = np.flip(h2_prices)
-    # # price_cap = np.flip(price_cap)
-    # inputs = product(h2_prices, pem_ratio)
-
-    # with mp.Pool(processes=35) as p:
-    #     res = p.starmap(run_design, inputs)
-
-    # df = pd.DataFrame(res)
-    # df.to_csv(file_dir / f"{file_name}.csv")

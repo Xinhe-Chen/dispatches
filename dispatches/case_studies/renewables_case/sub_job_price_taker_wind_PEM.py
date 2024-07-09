@@ -41,7 +41,7 @@ def submit_job(
             + "export LD_LIBRARY_PATH=~/.conda/envs/regen/lib:$LD_LIBRARY_PATH \n"
             + "module load gurobi/9.5.1\n"
             + "module load ipopt/3.14.2 \n"
-            + f"python ./run_pricetaker_wind_PEM.py --PEM_ratio {PEM_ratio} --H2_price {H2_price}"
+            + f"python ./run_pricetaker_wind_PEM_new.py --PEM_ratio {PEM_ratio} --H2_price {H2_price}"
         )
 
     os.system(f"qsub {file_name}")

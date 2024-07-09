@@ -16,6 +16,10 @@ import pyomo.environ as pyo
 from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
 from dispatches.case_studies.renewables_case.RE_flowsheet import *
 
+'''
+This is for adding V4 (DA-RT two step approach to the wind-PEM case)
+'''
+
 def load_DA_LMP_DISPATCH_data(default_input_params):
     '''
     Load the DA LMP and dispatch data for the two step approach.
@@ -32,7 +36,7 @@ def load_DA_LMP_DISPATCH_data(default_input_params):
     da_lmp = prices_signal["DA"]
     rt_lmp = prices_signal["RT"]
 
-    df_da_dis = pd.read_csv(default_input_params["da_dispatch"]).to_list()
+    df_da_dis = default_input_params["DA_dispatch"]
 
     return da_lmp, rt_lmp, df_da_dis
 
@@ -388,7 +392,8 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ve
         # convert to list
         "LMP": list(lmp_array),
         "h2_prod": list(h2_prod),
-        'wind_gen': list(wind_gen),
+        "wind_gen": list(wind_gen),
+        "wind_out": list(wind_out),
         "wind_to_pem": list(wind_to_pem),
         "h2_revenue": list(h2_revenue),
         "elec_revenue": list(elec_revenue),
@@ -396,7 +401,7 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ve
     }
 
     df_results = pd.DataFrame(results)
-    df_results.to_csv(f"wind_pem_{market}_{input_params['pem_mw']}_{input_params['h2_price_per_kg']}.csv")
+    # df_results.to_csv(f"wind_pem_{market}_{input_params['pem_mw']}_{input_params['h2_price_per_kg']}.csv")
 
     if plot:
         fig, ax1 = plt.subplots(3, 1, figsize=(12, 8))
@@ -465,7 +470,7 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ve
     }
     print(design_res)
 
-    return design_res, ipopt_res
+    return design_res, ipopt_res, df_results
 
 
 if __name__ == "__main__":
