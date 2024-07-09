@@ -22,9 +22,9 @@ import numpy as np
 from argparse import ArgumentParser
 import json
 from dispatches.case_studies.renewables_case.wind_battery_PEM_LMP_new import wind_battery_pem_optimize
-from dispatches.case_studies.renewables_case.RE_flowsheet import default_input_params, market
+from dispatches.case_studies.renewables_case.RE_flowsheet import default_input_params
+from dispatches.case_studies.renewables_case.load_parameters import market
 
-market = "DA"
 usage = "Solve wind_PEM price-taker model."
 parser = ArgumentParser(usage)
 parser.add_argument(
@@ -80,7 +80,7 @@ def run_design(h2_price, pem_ratio):
     des_res, solver_res, df_res = wind_battery_pem_optimize(
         # time_points=24 * 7, 
         time_points=len(wind_cfs), 
-        input_params=input_params, verbose=False, plot=False)
+        input_params=input_params, market=market, verbose=False, plot=False)
     res = {**input_params, **des_res[0]}
     res.pop("DA_LMPs")
     res.pop("design_opt")
@@ -94,7 +94,6 @@ def run_design(h2_price, pem_ratio):
     return res
 
 if __name__ == "__main__":
-    market = "DA"
     shortfall = 1000
     wind_df = pd.read_parquet(Path(__file__).parent / "data" / f"303_LMPs_15_reserve_{shortfall}_shortfall.parquet")
 
@@ -127,4 +126,4 @@ if __name__ == "__main__":
     if not file_dir.exists():
         os.mkdir(file_dir)
 
-    res = run_design(H2_price, PEM_ratio)
+    res = run_design(H2_price, PEM_ratio, market)

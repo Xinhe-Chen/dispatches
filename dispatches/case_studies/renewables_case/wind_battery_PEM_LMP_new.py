@@ -20,7 +20,7 @@ from dispatches.case_studies.renewables_case.RE_flowsheet import *
 This is for adding V4 (DA-RT two step approach to the wind-PEM case)
 '''
 
-def load_DA_LMP_DISPATCH_data(default_input_params):
+def load_DA_LMP_DISPATCH_data(default_input_params, market):
     '''
     Load the DA LMP and dispatch data for the two step approach.
     
@@ -201,7 +201,7 @@ def wind_battery_pem_mp_block(wind_resource_config, input_params, verbose):
     return m
 
 
-def wind_battery_pem_optimize(time_points, input_params=default_input_params, verbose=False, plot=False):
+def wind_battery_pem_optimize(time_points, input_params=default_input_params, market='DA', verbose=False, plot=False):
     """
     The main function for optimizing the flowsheet's design and operating variables for Net Present Value. 
 
@@ -279,7 +279,7 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ve
         m.wind_cap_cost.set_value(0.)
 
     if market == "DA-RT":
-        da_lmp, rt_lmp, da_dispatch =  load_DA_LMP_DISPATCH_data(default_input_params)
+        da_lmp, rt_lmp, da_dispatch =  load_DA_LMP_DISPATCH_data(default_input_params, market)
 
     # add market data for each block
     for (i, blk) in enumerate(blks):
