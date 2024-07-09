@@ -16,6 +16,26 @@ import pyomo.environ as pyo
 from idaes.apps.grid_integration.multiperiod.multiperiod import MultiPeriodModel
 from dispatches.case_studies.renewables_case.RE_flowsheet import *
 
+def load_DA_LMP_DISPATCH_data(default_input_params):
+    '''
+    Load the DA LMP and dispatch data for the two step approach.
+    
+    Arguments:
+        default_input_params: dict, default input parameters.    
+
+    Returns:
+
+    '''
+    if market != "DA-RT":
+        raise ValueError(f"This function should only be called when market == DA-RT, but {market} is given.")
+    prices_signal = default_input_params["DA_LMPs"]
+    da_lmp = prices_signal["DA"]
+    rt_lmp = prices_signal["RT"]
+
+    df_da_dis = pd.read_csv(default_input_params["da_dispatch"]).to_list()
+
+    return da_lmp, rt_lmp, df_da_dis
+
 
 def wind_battery_pem_variable_pairs(m1, m2):
     """
@@ -254,8 +274,11 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ve
     if input_params['extant_wind']:
         m.wind_cap_cost.set_value(0.)
 
+    if market == "DA-RT":
+        da_lmp, rt_lmp, da_dispatch =  load_DA_LMP_DISPATCH_data(default_input_params)
+
     # add market data for each block
-    for blk in blks:
+    for (i, blk) in enumerate(blks):
         blk_wind = blk.fs.windpower
         blk_battery = blk.fs.battery
         blk_pem = blk.fs.pem
@@ -272,17 +295,40 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ve
         )
 
         # add market data for each block
-        blk.lmp_signal = pyo.Param(default=0, mutable=True)
-        blk.revenue = blk.lmp_signal * (blk.fs.splitter.grid_elec[0] + blk_battery.elec_out[0]) * 1e-3    # to $/kWh
+        if market in ["DA", "RT", "Both"]:
+            blk.lmp_signal = pyo.Param(default=0, mutable=True)
+            blk.lmp_signal.set_value(input_params['DA_LMPs'][i])
+            blk.revenue = blk.lmp_signal * (blk.fs.splitter.grid_elec[0] + blk_battery.elec_out[0]) * 1e-3    # to $/kWh
+        
+        else:
+            blk.lmp_signal = pyo.Param(default=0, mutable=True)
+            blk.lmp_signal.set_value(rt_lmp[i])
+            blk.da_lmp.set_value(da_lmp[i])
+            blk.da_lmp = pyo.Param(default=0, mutable=True)
+            blk.da_lmp.set_value(da_lmp[i])
+            blk.da_dispatch = pyo.Param(default=0, mutable=True)
+            blk.da_dispatch.set_value(da_dispatch[i])
+            blk.revenue = blk.lmp_signal * (blk.fs.splitter.grid_elec[0] + blk_battery.elec_out[0] - blk.da_dispatch) * 1e-3 + blk.da_dispatch * blk.da_lmp
+
         blk.hydrogen_revenue = Expression(expr=m.h2_price_per_kg * blk_pem.outlet.flow_mol[0] / h2_mols_per_kg * 3600)
         blk.profit = pyo.Expression(expr=blk.hydrogen_revenue + blk.revenue - blk_wind.op_total_cost - blk_pem.op_total_cost - blk_battery.op_total_cost)
 
-    for (i, blk) in enumerate(blks):
-        blk.lmp_signal.set_value(input_params['DA_LMPs'][i]) 
+    # original code from Darice, why dont we integrate this into the last for loop?
 
-    n_weeks = time_points / (7 * 24)
+    # if market in ["DA", "RT", "Both"]:
+    #     for (i, blk) in enumerate(blks):
+    #         blk.lmp_signal.set_value(input_params['DA_LMPs'][i])
+    # else:
+    #     # if we run the DA-RT (V4) case, we set the lmp to the RT LMP
+    #     # DA-RT case, the input_params["DA_LMPs"] is a dictionary not a list.
+    #     for (i, blk) in enumerate(blks):
+    #         blk.lmp_signal.set_value(rt_lmp[i])
+    #         blk.da_lmp.set_value(da_lmp[i])
+    #         blk.da_dispatch.set_value(da_dispatch[i])
 
-    m.annual_revenue = Expression(expr=(sum([blk.profit for blk in blks])) * 52 / n_weeks)
+    # n_weeks = time_points / (7 * 24)
+
+    m.annual_revenue = Expression(expr=(sum([blk.profit for blk in blks])))
 
     m.NPV = Expression(expr=-(m.wind_cap_cost * m.wind_system_capacity +
                               m.batt_cap_cost_kw * m.battery_system_capacity +
@@ -309,6 +355,7 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ve
     elec_revenue = []
     profit = []
 
+
     h2_prod.append([pyo.value(blks[i].fs.pem.outlet_state[0].flow_mol * 3600) for i in range(time_points)])
     wind_gen.append([pyo.value(blks[i].fs.windpower.electricity[0]) for i in range(time_points)])
     wind_to_grid.append([pyo.value(blks[i].fs.splitter.grid_elec[0]) for i in range(time_points)])
@@ -320,23 +367,36 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ve
     profit.append([pyo.value(blks[i].profit) for i in range(time_points)])
     h2_revenue.append([pyo.value(blks[i].hydrogen_revenue) for i in range(time_points)])
 
-    n_weeks_to_plot = 1
     hours = np.arange(time_points)
     lmp_array = input_params['DA_LMPs'][0:time_points]
-    h2_prod = np.asarray(h2_prod[0:n_weeks_to_plot]).flatten()
-    wind_to_pem = np.asarray(wind_to_pem[0:n_weeks_to_plot]).flatten()
-    wind_gen = np.asarray(wind_gen[0:n_weeks_to_plot]).flatten()
-    wind_out = np.asarray(wind_to_grid[0:n_weeks_to_plot]).flatten()
-    batt_out = np.asarray(batt_to_grid[0:n_weeks_to_plot]).flatten()
-    batt_in = np.asarray(wind_to_batt[0:n_weeks_to_plot]).flatten()
-    batt_soc = np.asarray(soc[0:n_weeks_to_plot]).flatten()
-    h2_revenue = np.asarray(h2_revenue[0:n_weeks_to_plot]).flatten()
-    elec_revenue = np.asarray(elec_revenue[0:n_weeks_to_plot]).flatten()
-    profit = np.asarray(profit[0:n_weeks_to_plot]).flatten()
+    h2_prod = np.asarray(h2_prod[0:time_points]).flatten()
+    wind_to_pem = np.asarray(wind_to_pem[0:time_points]).flatten()
+    wind_gen = np.asarray(wind_gen[0:time_points]).flatten()
+    wind_out = np.asarray(wind_to_grid[0:time_points]).flatten()
+    batt_out = np.asarray(batt_to_grid[0:time_points]).flatten()
+    batt_in = np.asarray(wind_to_batt[0:time_points]).flatten()
+    batt_soc = np.asarray(soc[0:time_points]).flatten()
+    h2_revenue = np.asarray(h2_revenue[0:time_points]).flatten()
+    elec_revenue = np.asarray(elec_revenue[0:time_points]).flatten()
+    profit = np.asarray(profit[0:time_points]).flatten()
 
     wind_cap = value(m.wind_system_capacity) * 1e-3
     batt_cap = value(m.battery_system_capacity) * 1e-3
     pem_cap = value(m.pem_system_capacity) * 1e-3
+
+    results = {
+        # convert to list
+        "LMP": list(lmp_array),
+        "h2_prod": list(h2_prod),
+        'wind_gen': list(wind_gen),
+        "wind_to_pem": list(wind_to_pem),
+        "h2_revenue": list(h2_revenue),
+        "elec_revenue": list(elec_revenue),
+        "profit": list(profit),
+    }
+
+    df_results = pd.DataFrame(results)
+    df_results.to_csv(f"wind_pem_{market}_{input_params['pem_mw']}_{input_params['h2_price_per_kg']}.csv")
 
     if plot:
         fig, ax1 = plt.subplots(3, 1, figsize=(12, 8))
@@ -396,9 +456,9 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ve
         'wind_mw': wind_cap,
         "batt_mw": batt_cap,
         "pem_mw": pem_cap,
-        "annual_rev_h2": sum(h2_revenue) * 52 / n_weeks,
-        "annual_rev_E": sum(elec_revenue) * 52 / n_weeks,
-        "profit": sum(profit) * 52 / n_weeks,
+        "annual_rev_h2": sum(h2_revenue),
+        "annual_rev_E": sum(elec_revenue),
+        "profit": sum(profit),
         "NPV": value(m.NPV),
         "NPV_ann": value(m.NPV_ann),
         "solver_stat": str(ipopt_res.solver.termination_condition)

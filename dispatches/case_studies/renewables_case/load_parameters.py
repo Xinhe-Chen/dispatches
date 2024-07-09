@@ -97,6 +97,9 @@ bus = "303"
 market = "DA"
 if market == "Both":
     prices = np.max((df[f"{bus}_DALMP"].values, df[f"{bus}_RTLMP"].values), axis=0)
+elif market == "DA-RT":
+    # here, make them a dictionary. 
+    prices = {"DA": df[f"{bus}_DALMP"].values, "RT": df[f"{bus}_RTLMP"].values}
 else:
     prices = df[f"{bus}_{market}LMP"].values
 prices_used = copy.copy(prices)
