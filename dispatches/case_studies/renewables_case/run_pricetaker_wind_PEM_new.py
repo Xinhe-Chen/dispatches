@@ -81,7 +81,7 @@ def run_design(h2_price, pem_ratio):
         # time_points=24 * 7, 
         time_points=len(wind_cfs), 
         input_params=input_params, market=market, verbose=False, plot=False)
-    res = {**input_params, **des_res[0]}
+    res = {**input_params, **des_res}
     res.pop("DA_LMPs")
     res.pop("design_opt")
     res.pop("extant_wind")
