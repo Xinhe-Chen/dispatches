@@ -107,7 +107,7 @@ if __name__ == "__main__":
         default_input_params['DA_LMPs'] =  wind_df['LMP'].values
         wind_cfs = wind_df[f"303_WIND_1-RTCF"].values
     else:
-        da_res_df = pd.read_csv(Path(__file__).parent / "wind_PEM" / "DA" / f"wind_pem_DA_{PEM_ratio*default_input_params["wind_mw"]}_{H2_price}.csv")
+        da_res_df = pd.read_csv(Path(__file__).parent / "wind_PEM" / "DA" / f"wind_pem_DA_{PEM_ratio*default_input_params['wind_mw']}_{H2_price}.csv")
         DA_dispatch = da_res_df["wind_out"].values
         default_input_params['DA_LMPs'] = {"DA": wind_df['LMP DA'].values, "RT": wind_df['LMP'].values}
         default_input_params["DA_dispatch"] = DA_dispatch
@@ -126,4 +126,4 @@ if __name__ == "__main__":
     if not file_dir.exists():
         os.mkdir(file_dir)
 
-    res = run_design(H2_price, PEM_ratio, market)
+    res = run_design(H2_price, PEM_ratio)
