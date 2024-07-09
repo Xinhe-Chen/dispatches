@@ -94,6 +94,7 @@ def run_design(h2_price, pem_ratio):
     return res
 
 if __name__ == "__main__":
+    market = "DA"
     shortfall = 1000
     wind_df = pd.read_parquet(Path(__file__).parent / "data" / f"303_LMPs_15_reserve_{shortfall}_shortfall.parquet")
 
