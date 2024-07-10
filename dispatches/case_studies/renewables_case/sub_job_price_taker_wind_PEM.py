@@ -21,7 +21,7 @@ def submit_job(
     sim_id,
     PEM_ratio=0.1,
     H2_price=0.8,
-    market = 'DA'
+    market = 'DA-RT'
 ):
 
     # create a directory to save job scripts
@@ -51,11 +51,11 @@ if __name__ == "__main__":
     sim_id = 0
     pem_ratio_range = [i / 100 for i in range(5, 51, 5)] 
     h2_price_range = [0.75, 1, 1.25, 1.5, 1.75, 2]
-    # submit_job(0, 0.05, 0.75)
+    submit_job(0, 0.05, 0.75)
     # market = 'DA'
-    for i in h2_price_range:
-        for j in pem_ratio_range:
-            sim_id += 1
-            PEM_ratio = j
-            H2_price = i
-            submit_job(sim_id, PEM_ratio, H2_price)
+   # for i in h2_price_range:
+    #    for j in pem_ratio_range:
+    #        sim_id += 1
+    #        PEM_ratio = j
+    #        H2_price = i
+    #        submit_job(sim_id, PEM_ratio, H2_price)
