@@ -311,7 +311,7 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ma
             blk.da_lmp.set_value(da_lmp[i])
             blk.da_dispatch = pyo.Param(default=0, mutable=True)
             blk.da_dispatch.set_value(da_dispatch[i])
-            blk.revenue = blk.lmp_signal * (blk.fs.splitter.grid_elec[0] + blk_battery.elec_out[0] - blk.da_dispatch) * 1e-3 + blk.da_dispatch * blk.da_lmp
+            blk.revenue = blk.lmp_signal * (blk.fs.splitter.grid_elec[0] + blk_battery.elec_out[0] - blk.da_dispatch) * 1e-3 + blk.da_dispatch * blk.da_lmp *1e-3
 
         blk.hydrogen_revenue = Expression(expr=m.h2_price_per_kg * blk_pem.outlet.flow_mol[0] / h2_mols_per_kg * 3600)
         blk.profit = pyo.Expression(expr=blk.hydrogen_revenue + blk.revenue - blk_wind.op_total_cost - blk_pem.op_total_cost - blk_battery.op_total_cost)
