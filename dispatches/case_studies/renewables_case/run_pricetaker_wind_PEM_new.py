@@ -89,7 +89,7 @@ def run_design(h2_price, pem_ratio):
     res.pop("pyo_model")
     with open(file_dir / f"result_{market}_{h2_price}_{pem_ratio}.json", 'w') as f:
         json.dump(res, f)
-    df_res.to_csv(file_dir / f"wind_pem_{market}_{input_params['pem_mw']}_{H2_price}.csv")
+    df_res.to_csv(file_dir / f"wind_pem_{market}_{np.round(input_params['pem_mw'], 2)}_{H2_price}.csv")
     print(f"Finished: {h2_price} {pem_ratio}")
     return res
 
@@ -107,7 +107,7 @@ if __name__ == "__main__":
         default_input_params['DA_LMPs'] =  wind_df['LMP'].values
         wind_cfs = wind_df[f"303_WIND_1-RTCF"].values
     else:
-        da_res_df = pd.read_csv(Path(__file__).parent / "wind_PEM" / "DA" / f"wind_pem_DA_{PEM_ratio*default_input_params['wind_mw']}_{H2_price}.csv")
+        da_res_df = pd.read_csv(Path(__file__).parent / "wind_PEM" / "DA" / f"wind_pem_DA_{np.round(PEM_ratio*default_input_params['wind_mw'], 2)}_{H2_price}.csv")
         DA_dispatch = da_res_df["wind_out"].values
         default_input_params['DA_LMPs'] = {"DA": wind_df['LMP DA'].values, "RT": wind_df['LMP'].values}
         default_input_params["DA_dispatch"] = DA_dispatch
