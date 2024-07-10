@@ -371,7 +371,7 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ma
     h2_revenue.append([pyo.value(blks[i].hydrogen_revenue) for i in range(time_points)])
 
     hours = np.arange(time_points)
-    lmp_array = input_params['DA_LMPs'][0:time_points]
+    lmp_array = input_params['DA_LMPs']["RT"][0:time_points]
     h2_prod = np.asarray(h2_prod[0:time_points]).flatten()
     wind_to_pem = np.asarray(wind_to_pem[0:time_points]).flatten()
     wind_gen = np.asarray(wind_gen[0:time_points]).flatten()
