@@ -87,6 +87,8 @@ def run_design(h2_price, pem_ratio):
     res.pop("extant_wind")
     res.pop("wind_resource")
     res.pop("pyo_model")
+    if market =="DA-RT":
+        res.pop("DA_dispatch")
     with open(file_dir / f"result_{market}_{h2_price}_{pem_ratio}.json", 'w') as f:
         json.dump(res, f)
     df_res.to_csv(file_dir / f"wind_pem_{market}_{np.round(input_params['pem_mw'], 2)}_{H2_price}.csv")
