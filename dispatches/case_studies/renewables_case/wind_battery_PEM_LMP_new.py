@@ -307,7 +307,6 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ma
         else:
             blk.lmp_signal = pyo.Param(default=0, mutable=True)
             blk.lmp_signal.set_value(rt_lmp[i])
-            blk.da_lmp.set_value(da_lmp[i])
             blk.da_lmp = pyo.Param(default=0, mutable=True)
             blk.da_lmp.set_value(da_lmp[i])
             blk.da_dispatch = pyo.Param(default=0, mutable=True)
