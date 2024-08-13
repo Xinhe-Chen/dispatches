@@ -34,11 +34,11 @@ def main():
     # TrainNNSurrogates, dispatch cf
     print('Start train dispatch frequency surrogate')
     NNtrainer = TrainNNSurrogates(simulation_data)
-    NN_model = NNtrainer.train_NN_cf([4,25,25,1])
+    # NN_model = NNtrainer.train_NN_cf([4,25,25,1])
     NN_frequency_model_path = str(pathlib.Path.cwd().joinpath(f'steady_state/tanh_25_25/NE_steady_state'))
     NN_frequency_param_path = str(pathlib.Path.cwd().joinpath(f'steady_state/tanh_25_25/NE_steady_state_params.json'))
     # NNtrainer.save_model(NN_model, NN_frequency_model_path, NN_frequency_param_path)
-    # NNtrainer.plot_R2_results(NN_frequency_model_path, NN_frequency_param_path, fig_name = f'NE_steady_state.jpg')
+    NNtrainer.plot_R2_results(NN_frequency_model_path, NN_frequency_param_path, fig_name = f'NE_steady_state.jpg')
 
 
 

@@ -24,7 +24,7 @@ def main():
     # for NE case study
     path_to_data_package = path("dynamic_sweep")
     case_type = "NE"
-    model_type = "clustering"
+    model_type = "revenue"
     method = "kmeans"
 
     if case_type == "NE":

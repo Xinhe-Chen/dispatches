@@ -24,6 +24,7 @@ from tensorflow.keras.optimizers import Adam
 import numpy as np
 import json
 import matplotlib.pyplot as plt
+from sklearn.metrics import mean_squared_error
 
 # this script supports subscenario analysis.
 class TrainNNSurrogates:
@@ -589,7 +590,7 @@ class TrainNNSurrogates:
             }
         font2 = {
             'weight' : 'normal',
-            'size'   : 18,
+            'size'   : 15,
             }
         if self.model_type == 'frequency':
             
@@ -689,7 +690,7 @@ class TrainNNSurrogates:
 
             x, y = self._transform_dict_to_array()
             # use a different random_state from the training
-            # x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
+            x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
 
             if NN_model_path == None:
                 # load the NN model from default path
@@ -713,16 +714,19 @@ class TrainNNSurrogates:
             ym = NN_param['y_mean']
             ystd = NN_param['y_std']
 
-            x_scaled = (x - xm)/xstd
-            pred_y = NN_model.predict(x_scaled)
-            pred_y_unscaled = pred_y*ystd + ym
+            x_train_scaled = (x_train - xm)/xstd
+            x_test_scaled = (x_test - xm)/xstd
+            pred_y_test = NN_model.predict(x_test_scaled)
+            pred_y_train = NN_model.predict(x_train_scaled)
+            pred_y_train_unscaled = pred_y_train*ystd + ym
+            pred_y_test_unscaled = pred_y_test*ystd + ym
 
             # compute R2 over all the regression data points
-            ypredict = pred_y_unscaled.transpose()
-            SS_tot = np.sum(np.square(y.transpose() - ym))
-            SS_res = np.sum(np.square(y.transpose() - ypredict))
-            R2 = 1 - SS_res/SS_tot
-            print(R2)
+            # ypredict = pred_y_unscaled.transpose()
+            # SS_tot = np.sum(np.square(y.transpose() - ym))
+            # SS_res = np.sum(np.square(y.transpose() - ypredict))
+            # R2 = 1 - SS_res/SS_tot
+            # print(R2)
 
             # plot results.
             fig, axs = plt.subplots()
@@ -732,13 +736,19 @@ class TrainNNSurrogates:
             axs.set_ylabel('Predicted Revenue [M$]', font = font1)
             fig.set_size_inches(6,6)
 
-            yt = y.transpose()
-            yp = pred_y_unscaled.transpose()
+            yt_train = y_train.transpose()
+            yt_test = y_test.transpose()
+            yp_train = pred_y_train_unscaled.transpose()
+            yp_test = pred_y_test_unscaled.transpose()
+            test_mse = mean_squared_error(yt_test/1e6, pred_y_test_unscaled/1e6)
+            print(test_mse)
 
-            axs.scatter(yt/1e6,yp/1e6,color = "green",alpha = 0.5)
-            axs.plot([min(yt)/1e6,max(yt)/1e6],[min(yt)/1e6,max(yt)/1e6],color = "black")
-            # axs.set_title(f'{self.simulation_data.case_type} Revenue',font = font1)
-            axs.annotate("$R^2 = {}$".format(round(R2,3)),(min(yt)/1e6,0.85*max(yt)/1e6),fontsize = 18)    
+            axs.scatter(yt_train/1e6,yp_train/1e6,color = "blue",alpha = 1,label = 'train')
+            axs.scatter(yt_test/1e6,yp_test/1e6,color = "red", marker='^',alpha = 1,label = 'test')
+            axs.plot([min(min(yt_train/1e6), min(yt_test/1e6)),max(max(yt_train/1e6), max(yt_test/1e6))],[min(min(yt_train/1e6), min(yt_test/1e6)),max(max(yt_train/1e6), max(yt_test/1e6))],color = "black")
+            axs.set_title(f'Revenue Surrogate',font = font1)
+            # axs.annotate("$R^2 = {}$".format(round(R2,3)),(min(yt)/1e6,0.85*max(yt)/1e6),fontsize = 18)
+            plt.legend(prop=font2)
 
             plt.xticks(fontsize=15)
             plt.yticks(fontsize=15)
