@@ -334,8 +334,8 @@ default_input_params = {
 
 
 if __name__ == "__main__":
-    result = run_design()
-    exit()
+    # result = run_design()
+    # exit()
 
     import multiprocessing as mp
     from itertools import product
