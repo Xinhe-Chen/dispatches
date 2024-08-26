@@ -108,7 +108,7 @@ def conceptual_design_dynamic_RE(input_params, PEM_bid=None, PEM_MW=None, verbos
     m.wind_system_capacity = Var(domain=NonNegativeReals, bounds=(100 * 1e3, 1000 * 1e3), initialize=input_params['wind_mw'] * 1e3)
     
     m.pem_system_capacity = Var(domain=NonNegativeReals, bounds=(127.05 * 1e3, 423.5 * 1e3), initialize=input_params['pem_mw'] * 1e3, units=pyunits.kW)
-    m.pem_bid = Var(within=NonNegativeReals, bounds=(15, 45), initialize=45)                    # Energy Bid $/MWh
+    m.pem_bid = Var(within=NonNegativeReals, bounds=(15, 45), initialize=15)                    # Energy Bid $/MWh
     m.reserve_percent = Param(within=NonNegativeReals, initialize=15)   # Reserves Fraction on Grid
     m.shortfall_price = Param(within=NonNegativeReals, initialize=shortfall)     # Energy price during load shed
 
@@ -122,6 +122,7 @@ def conceptual_design_dynamic_RE(input_params, PEM_bid=None, PEM_MW=None, verbos
     if PEM_MW is not None:
         m.pem_system_capacity.fix(PEM_MW * 1e3)
 
+    m.h2_price = Expression(expr = m.pem_bid * 0.05)
     # add NN surrogates to the model using omlt
     ##############################
     # revenue surrogate
@@ -214,7 +215,8 @@ def conceptual_design_dynamic_RE(input_params, PEM_bid=None, PEM_MW=None, verbos
         scenario_model.hydrogen_produced = Expression(scenario_model.TIME,
             rule=lambda b, t: scenario_model.dispatch_frequency * 8760 * blks[t].fs.pem.outlet.flow_mol[0] / h2_mols_per_kg * 3600)
         scenario_model.hydrogen_revenue = Expression(
-            expr=scenario_model.hydrogen_produced[0] * m.pem_bid / 20)
+            # expr=scenario_model.hydrogen_produced[0] * 3)
+            expr=scenario_model.hydrogen_produced[0] * m.h2_price)
         scenario_model.op_var_cost = Expression( 
             expr=input_params['pem_var_cost'] * blks[0].fs.pem.electricity[0])
         scenario_model.var_total_cost = Expression(expr=scenario_model.dispatch_frequency * 8760 * scenario_model.op_var_cost)
@@ -292,6 +294,7 @@ def run_design(PEM_bid=None, PEM_size=None):
     model, n_rep_days = conceptual_design_dynamic_RE(default_input_params, PEM_bid=PEM_bid, PEM_MW=PEM_size, verbose=False)
     nlp_solver = SolverFactory('ipopt')
     nlp_solver.options['max_iter'] = 8000
+    # nlp_solver.options['tol'] = 1e-5
     res = nlp_solver.solve(model, tee=True)
     if res.Solver.status != 'ok':
         solve_log = idaeslog.getInitLogger("infeasibility", idaeslog.INFO, tag="properties")
@@ -334,18 +337,19 @@ default_input_params = {
 
 
 if __name__ == "__main__":
+    result = run_design(PEM_bid=45, PEM_size=847*0.15)
     # result = run_design()
-    # exit()
+    exit()
 
-    import multiprocessing as mp
-    from itertools import product
+    # import multiprocessing as mp
+    # from itertools import product
 
-    bids = np.linspace(15, 45, 13)
-    sizes = np.linspace(127.05, 423.5, 15)
-    inputs = product(bids, sizes)
+    # bids = np.linspace(15, 45, 13)
+    # sizes = np.linspace(127.05, 423.5, 15)
+    # inputs = product(bids, sizes)
 
-    with mp.Pool(processes=24) as p:
-        res = p.starmap(run_design, inputs)
+    # with mp.Pool(processes=24) as p:
+    #     res = p.starmap(run_design, inputs)
 
-    df = pd.DataFrame(res)
-    df.to_csv(f"wind_PEM/surrogate_results_ss_rt_{shortfall}.csv")
+    # df = pd.DataFrame(res)
+    # df.to_csv(f"wind_PEM/surrogate_results_ss_rt_{shortfall}.csv")

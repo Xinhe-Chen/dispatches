@@ -153,8 +153,10 @@ def conceptual_design_ss_NE(reserve=10, max_lmp=500, H2_SELLING_PRICE=2):
     )
     # Threshold price calculation
     m.threshold_price_definition = Constraint(
-        expr=m.threshold_price == H2_PROD_RATE * H2_SELLING_PRICE
+        expr=m.threshold_price.fix(H2_PROD_RATE * H2_SELLING_PRICE)
     )
+    #     expr=m.threshold_price == H2_PROD_RATE * H2_SELLING_PRICE
+    # )
 
     # Add NN surrogate for revenue to the model
     m.nn_revenue = omlt.OmltBlock()
@@ -203,7 +205,7 @@ def conceptual_design_ss_NE(reserve=10, max_lmp=500, H2_SELLING_PRICE=2):
     # Calculate net hydrogen revenue
     m.h2_revenue = Expression(expr=H2_SELLING_PRICE * m.net_h2_production)
 
-    assert degrees_of_freedom(m) == 1
+    # assert degrees_of_freedom(m) == 1
 
     m.total_operating_cost = Expression(
         expr=NUM_HOURS * (NP_CAPACITY * NPP_VOM + m.net_energy_to_pem * PEM_VOM)
@@ -265,17 +267,17 @@ def run_exhaustive_enumeration(reserve, max_lmp):
 
         for idx2, pc in enumerate(pem_cap):
             # This loop actually solves the problem and records the unsolved cases
-            m.threshold_price_definition.deactivate()
-            assert degrees_of_freedom(m) == 1
+            # m.threshold_price_definition.deactivate()
+            # assert degrees_of_freedom(m) == 1
 
             print("Solving case: ", (idx1, idx2))
             m.pem_capacity.fix(pc * NP_CAPACITY)
 
             soln = solver.solve(m)
 
-            m.feasibility_constraint.activate()
-            soln = solver.solve(m)
-            m.feasibility_constraint.deactivate()
+            # m.feasibility_constraint.activate()
+            # soln = solver.solve(m)
+            # m.feasibility_constraint.deactivate()
 
             if str(soln.solver.termination_condition) == "infeasible":
                 unsolved_cases.append((idx2, pc))
@@ -289,29 +291,29 @@ def run_exhaustive_enumeration(reserve, max_lmp):
                 m.net_energy_to_pem.value / (m.pem_capacity.value * NUM_HOURS)
             results["opt_pem_bid"][str(idx1) + str(idx2)] = m.threshold_price.value
             
-            if idx1 == 0 and idx2 == 1:
-                # Attempts to solve a few cases which failed earlier
-                idx2 = 0
-                pc = 0.05
+        #     if idx1 == 0 and idx2 == 1:
+        #         # Attempts to solve a few cases which failed earlier
+        #         idx2 = 0
+        #         pc = 0.05
 
-                print("Solving case: ", (idx1, idx2))
-                m.pem_capacity.fix(pc * NP_CAPACITY)
+        #         print("Solving case: ", (idx1, idx2))
+        #         m.pem_capacity.fix(pc * NP_CAPACITY)
 
-                soln = solver.solve(m)
+        #         soln = solver.solve(m)
 
-                if str(soln.solver.termination_condition) == "infeasible":
-                    continue
+        #         if str(soln.solver.termination_condition) == "infeasible":
+        #             continue
 
-                results["elec_rev"][str(idx1) +  str(idx2)] = m.electricity_revenue.value / 1e6
-                results["h2_rev"][str(idx1) +  str(idx2)] = m.h2_revenue.expr() / 1e6
-                results["net_npv"][str(idx1) +  str(idx2)] = -m.obj.expr() / 1e6
-                results["solver_stat"][str(idx1) +  str(idx2)] = str(soln.solver.termination_condition)
-                results["pem_cap_factor"][str(idx1) + str(idx2)] = \
-                    m.net_energy_to_pem.value / (m.pem_capacity.value * NUM_HOURS)
-                results["opt_pem_bid"][str(idx1) + str(idx2)] = m.threshold_price.value
+        #         results["elec_rev"][str(idx1) +  str(idx2)] = m.electricity_revenue.value / 1e6
+        #         results["h2_rev"][str(idx1) +  str(idx2)] = m.h2_revenue.expr() / 1e6
+        #         results["net_npv"][str(idx1) +  str(idx2)] = -m.obj.expr() / 1e6
+        #         results["solver_stat"][str(idx1) +  str(idx2)] = str(soln.solver.termination_condition)
+        #         results["pem_cap_factor"][str(idx1) + str(idx2)] = \
+        #             m.net_energy_to_pem.value / (m.pem_capacity.value * NUM_HOURS)
+        #         results["opt_pem_bid"][str(idx1) + str(idx2)] = m.threshold_price.value
 
         for idx2, pc in unsolved_cases:
-            print("Solving case: ", (idx1, idx2))
+            print("Solving case again: ", (idx1, idx2))
             m.pem_capacity.fix(pc * NP_CAPACITY)
 
             soln = solver.solve(m)
@@ -330,9 +332,9 @@ def run_exhaustive_enumeration(reserve, max_lmp):
 
     print(remaining_cases)
 
-    with open("ss_results_" + str(reserve) + "_" + str(max_lmp) + 
-              "_" + str(PEM_CAPEX) + ".json", "w") as fp:
-        json.dump(results, fp, indent=4)
+    # with open("ss_results_" + str(reserve) + "_" + str(max_lmp) + 
+    #           "_" + str(PEM_CAPEX) + ".json", "w") as fp:
+    #     json.dump(results, fp, indent=4)
 
 
 if __name__ == '__main__':
