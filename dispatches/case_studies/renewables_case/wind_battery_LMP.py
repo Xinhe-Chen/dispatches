@@ -224,9 +224,9 @@ def wind_battery_optimize(n_time_points, input_params, verbose=False):
         blk_battery = blk.fs.battery
         
         # add operating costs, days in a year = 366
-        blk_wind.op_total_cost = Expression(
-            expr=m.wind_system_capacity * blk_wind.op_cost / 8784
-        )
+#        blk_wind.op_total_cost = Expression(
+#            expr=m.wind_system_capacity * blk_wind.op_cost / 8784
+#        )
         blk_battery.op_total_cost = Expression(
             expr=m.battery_system_capacity * blk_battery.op_cost / 8784
         )
@@ -234,14 +234,14 @@ def wind_battery_optimize(n_time_points, input_params, verbose=False):
         blk.lmp_signal = pyo.Param(default=0, mutable=True)
         blk.elec_output = blk.fs.splitter.grid_elec[0] + blk_battery.elec_out[0]
         blk.revenue = (
-            blk.lmp_signal * (blk.fs.splitter.grid_elec[0] + blk_battery.elec_out[0])
+            (blk.lmp_signal) * (blk.fs.splitter.grid_elec[0] + blk_battery.elec_out[0])
         )
         blk.profit = pyo.Expression(expr=blk.revenue 
                                          - blk_wind.op_total_cost
                                          - blk_battery.op_total_cost)
 
     for (i, blk) in enumerate(blks):
-        blk.lmp_signal.set_value(input_params['DA_LMPs'][i] * 1e-3) 
+        blk.lmp_signal.set_value((1e-3 + input_params['DA_LMPs'][i]) * 1e-3) 
     
     m.wind_cap_cost = pyo.Param(default=wind_cap_cost, mutable=True)
     if input_params['extant_wind']:
@@ -268,7 +268,9 @@ def wind_battery_optimize(n_time_points, input_params, verbose=False):
     )
     m.obj = pyo.Objective(expr=-m.NPV * 1e-5)
 
-    opt = pyo.SolverFactory("ipopt")
+    opt = pyo.SolverFactory("gurobi")
+#    opt.options['linear_solver'] = 'ma57'
+#    opt.options['max_iter'] = 10000
     opt.solve(m, tee=verbose)
 
     return mp_wind_battery
