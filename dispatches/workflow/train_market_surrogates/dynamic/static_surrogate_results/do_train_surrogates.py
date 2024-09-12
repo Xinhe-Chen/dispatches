@@ -23,7 +23,7 @@ from dispatches_data.api import path
 def main():
     # for NE case study
     path_to_data_package = path("dynamic_sweep")
-    case_type = "NE"
+    case_type = "RE"
     model_type = "revenue"
     method = "kmeans"
 
