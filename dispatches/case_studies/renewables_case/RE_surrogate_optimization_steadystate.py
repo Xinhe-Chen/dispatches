@@ -209,11 +209,11 @@ def conceptual_design_dynamic_RE(input_params, PEM_bid=None, PEM_MW=None, verbos
             rule=lambda b, t: blks[t].fs.splitter.pem_elec[0] <= m.wind_system_capacity * pem_capacity_factor)
 
         scenario_model.elec_grid = Expression(
-            expr=scenario_model.dispatch_frequency * 8760 * blks[0].fs.splitter.grid_elec[0])
+            expr=scenario_model.dispatch_frequency * 8784 * blks[0].fs.splitter.grid_elec[0])
         scenario_model.elec_pem = Expression(
-            expr=scenario_model.dispatch_frequency * 8760 * blks[0].fs.splitter.pem_elec[0])
+            expr=scenario_model.dispatch_frequency * 8784 * blks[0].fs.splitter.pem_elec[0])
         scenario_model.hydrogen_produced = Expression(scenario_model.TIME,
-            rule=lambda b, t: scenario_model.dispatch_frequency * 8760 * blks[t].fs.pem.outlet.flow_mol[0] / h2_mols_per_kg * 3600)
+            rule=lambda b, t: scenario_model.dispatch_frequency * 8784 * blks[t].fs.pem.outlet.flow_mol[0] / h2_mols_per_kg * 3600)
         scenario_model.hydrogen_revenue = Expression(
             # expr=scenario_model.hydrogen_produced[0] * 3)
             expr=scenario_model.hydrogen_produced[0] * m.h2_price)
@@ -248,14 +248,15 @@ def record_result(m, num_rep_days):
     for i in range(num_rep_days):
         scenario_model = getattr(m, 'scenario_model_{}'.format(i))
 
-        _wind_gen = [value(scenario_model.blocks[j].process.fs.windpower.electricity[0]) for j in range(1)]
-        wind_gen.append(_wind_gen)
+        # _wind_gen = [value(scenario_model.blocks[j].process.fs.windpower.electricity[0]) for j in range(1)]
+        # wind_gen.append(sum(_wind_gen))
 
-        _wind_to_grid = [value(scenario_model.blocks[j].process.fs.splitter.grid_elec[0]) for j in range(1)]
-        wind_to_grid.append(_wind_to_grid )
+        # _wind_to_grid = [value(scenario_model.blocks[j].process.fs.splitter.grid_elec[0]) for j in range(1)]
+        _wind_to_grid = [value(scenario_model.elec_grid)]
+        wind_to_grid.append(sum(_wind_to_grid))
 
-        _wind_to_pem = [value(scenario_model.blocks[j].process.fs.splitter.pem_elec[0]) for j in range(1)]
-        wind_to_pem.append(_wind_to_pem)
+        _wind_to_pem = [value(scenario_model.elec_pem)]
+        wind_to_pem.append(sum(_wind_to_pem))
 
     results = {
         "wind_mw": value(m.wind_system_capacity) * 1e-3,
@@ -264,7 +265,10 @@ def record_result(m, num_rep_days):
         "e_revenue": value(m.rev),
         "h_revenue": value(m.hydrogen_rev),
         "NPV": value(m.NPV),
-        "NPV_ann": value(m.NPV_ann)
+        "NPV_ann": value(m.NPV_ann),
+        "Grid_e": sum(wind_to_grid),
+        "PEM_e": sum(wind_to_pem),
+        # "Wind_e": sum(wind_gen),
     }
 
     for day in range(num_rep_days):
@@ -337,19 +341,19 @@ default_input_params = {
 
 
 if __name__ == "__main__":
-    result = run_design(PEM_bid=45, PEM_size=847*0.15)
+    # result = run_design(PEM_bid=45, PEM_size=847*0.15)
     # result = run_design()
-    exit()
+    # exit()
 
-    # import multiprocessing as mp
-    # from itertools import product
+    import multiprocessing as mp
+    from itertools import product
 
-    # bids = np.linspace(15, 45, 13)
-    # sizes = np.linspace(127.05, 423.5, 15)
-    # inputs = product(bids, sizes)
+    bids = np.linspace(15, 45, 13)
+    sizes = np.linspace(127.05, 423.5, 15)
+    inputs = product(bids, sizes)
 
-    # with mp.Pool(processes=24) as p:
-    #     res = p.starmap(run_design, inputs)
+    with mp.Pool(processes=24) as p:
+        res = p.starmap(run_design, inputs)
 
-    # df = pd.DataFrame(res)
-    # df.to_csv(f"wind_PEM/surrogate_results_ss_rt_{shortfall}.csv")
+    df = pd.DataFrame(res)
+    df.to_csv(f"wind_PEM/surrogate_results_ss_rt_{shortfall}.csv")
