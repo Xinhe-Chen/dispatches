@@ -7,26 +7,23 @@ from idaes.apps.grid_integration import Tracker
 from idaes.apps.grid_integration.model_data import ThermalGeneratorModelData
 from dispatches.workflow.coordinator import DoubleLoopCoordinator
 from dispatches.case_studies.renewables_case.wind_PEM_double_loop import MultiPeriodWindPEM
-from dispatches.case_studies.renewables_case.load_parameters import *
+# from dispatches.case_studies.renewables_case.load_parameters import *
 from idaes.apps.grid_integration.bidder import PEMParametrizedBidder
 from idaes.apps.grid_integration.forecaster import PerfectForecaster
 from dispatches_sample_data import rts_gmlc
 from dispatches.case_studies.renewables_case.double_loop_utils import read_rts_gmlc_wind_inputs
-from dispatches.improved_pt.prescient_sweep.base_prescient_options import *
+from dispatches.improved_pt.prescient_sweep.base_prescient_options import prescient_options
 
 ###
-# Script to run a double loop simulation of a Wind + PEM flowsheet (MultiPeriodWindPEM) in Prescient.
-# Plant's system dynamics and costs are in wind_PEM_double_loop.
-# Plant's bid parameter is "pem_bid" and is constant throughout the simulation.
-# Bid curve is a constant function of the available wind resource (one per DA or RT).
-# 
+# Script to run a double loop simulation of a Nuclear + PEM flowsheet in Prescient.
 # The DoubleLoopCoordinator is from dispatces.workflow.coordinator, not from idaes.apps.grid_integration.
 # This version contains some modifications for generator typing and will be merged into idaes in the future.
 ###
 
-prescient_options = default_prescient_options.copy()
+ne_prescient_options = prescient_options.copy()
 shortfall = 500
-prescient_options["price_threshold"] = shortfall
+ne_prescient_options["price_threshold"] = shortfall
+ne_generator = '121_NUCLEAR_1'
 
 usage = "Run double loop simulation with RE model."
 parser = ArgumentParser(usage)
@@ -41,12 +38,12 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--wind_pmax",
-    dest="wind_pmax",
-    help="Set wind capacity in MW.",
+    "--ne_pmax",
+    dest="Nuclear_pmax",
+    help="Set nuclear power plant capacity in MW.",
     action="store",
     type=float,
-    default=fixed_wind_mw,
+    default=400,
 )
 
 parser.add_argument(
@@ -55,7 +52,7 @@ parser.add_argument(
     help="Set the PEM power capacity in MW.",
     action="store",
     type=float,
-    default=211.75,
+    default=200,
 )
 
 parser.add_argument(
@@ -64,31 +61,26 @@ parser.add_argument(
     help="Set the PEM bid price in $/MW.",
     action="store",
     type=float,
-    default=35,
+    default=25,
 )
 
 options = parser.parse_args()
 
 sim_id = options.sim_id
-wind_pmax = options.wind_pmax
+ne_pmax = options.ne_pmax
 pem_pmax = options.pem_pmax
 pem_bid = options.pem_bid
 p_min = 0
 
-# NOTE: `rts_gmlc_data_dir` should point to a directory containing RTS-GMLC scenarios
-wind_df = read_rts_gmlc_wind_inputs(rts_gmlc.source_data_path, wind_generator)
-wind_df = wind_df[wind_df.index >= start_date]
-wind_rt_cfs = wind_df[f"{wind_generator}-RTCF"].values.tolist()
+output_dir = Path(f"test_results/NE_double_loop_test_{sim_id}")
 
-output_dir = Path(f"test_results/sweep_design_{int(reserve_factor*100)}_shortfall_{shortfall}_rth_{real_time_horizon}")
-
-solver = pyo.SolverFactory(solver_name)
+solver = pyo.SolverFactory('ipopt')
 
 thermal_generator_params = {
-    "gen_name": wind_generator,
-    "bus": bus_name,
+    "gen_name": ne_generator,
+    "bus": 'Attlee',
     "p_min": p_min,
-    "p_max": wind_pmax,
+    "p_max": ne_pmax,
     "min_down_time": 0,
     "min_up_time": 0,
     "ramp_up_60min": wind_pmax,
@@ -184,16 +176,16 @@ coordinator = DoubleLoopCoordinator(
     projection_tracker=project_tracker_object,
 )
 
-prescient_options["output_directory"] = output_dir
-prescient_options["plugin"] = {
+ne_prescient_options["output_directory"] = output_dir
+ne_prescient_options["plugin"] = {
     "doubleloop": {
         "module": coordinator.prescient_plugin_module,
-        "bidding_generator": wind_generator,
+        "bidding_generator": ne_generator,
     }
 }
 
-Prescient().simulate(**prescient_options)
+Prescient().simulate(**ne_prescient_options)
 
 # write options into the result folder
 with open(output_dir / "sim_options_pem.json", "w") as f:
-    f.write(str(thermal_generator_params.update(prescient_options)))
+    f.write(str(thermal_generator_params.update(ne_prescient_options)))
