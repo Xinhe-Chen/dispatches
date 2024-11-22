@@ -1,4 +1,4 @@
-from dispatches.prescient_sweeps.utils import FlattenedIndexMapper
+from dispatches.improved_pt.prescient_sweeps.utils import FlattenedIndexMapper
 
 generator_name = "121_NUCLEAR_1"
 
