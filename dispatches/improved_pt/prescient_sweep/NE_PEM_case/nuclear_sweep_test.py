@@ -2,8 +2,8 @@ import os
 import sys
 
 from parameters import update_function
-from dispatches.prescient_sweeps.base_prescient_options import prescient_options
-from dispatches.prescient_sweeps.utils import run_sweep
+from dispatches.improved_pt.prescient_sweep.base_prescient_options import prescient_options
+from dispatches.improved_pt.prescient_sweep.utils import run_sweep
 
 prescient_options["output_directory"] = 'test_ne_sweep'
 
