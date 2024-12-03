@@ -6,13 +6,12 @@ from pyomo.common.fileutils import this_file_dir
 from idaes.apps.grid_integration import Tracker
 from idaes.apps.grid_integration.model_data import ThermalGeneratorModelData
 from dispatches.workflow.coordinator import DoubleLoopCoordinator
-from dispatches.case_studies.renewables_case.wind_PEM_double_loop import MultiPeriodWindPEM
-# from dispatches.case_studies.renewables_case.load_parameters import *
+from dispatches.case_studies.nuclear_case.nuclear_flowsheet_multiperiod_class import MultiPeriodNuclear
 from idaes.apps.grid_integration.bidder import PEMParametrizedBidder
 from idaes.apps.grid_integration.forecaster import PerfectForecaster
 from dispatches_sample_data import rts_gmlc
-from dispatches.case_studies.renewables_case.double_loop_utils import read_rts_gmlc_wind_inputs
-from dispatches.improved_pt.prescient_sweep.base_prescient_options import prescient_options
+from dispatches.improved_pt.prescient_sweep.base_prescient_options import prescient_options, NPP_df
+import pandas as pd
 
 ###
 # Script to run a double loop simulation of a Nuclear + PEM flowsheet in Prescient.
@@ -39,11 +38,11 @@ parser.add_argument(
 
 parser.add_argument(
     "--ne_pmax",
-    dest="Nuclear_pmax",
+    dest="ne_pmax",
     help="Set nuclear power plant capacity in MW.",
     action="store",
     type=float,
-    default=400,
+    default=400.0,
 )
 
 parser.add_argument(
@@ -52,7 +51,7 @@ parser.add_argument(
     help="Set the PEM power capacity in MW.",
     action="store",
     type=float,
-    default=200,
+    default=200.0,
 )
 
 parser.add_argument(
@@ -61,18 +60,22 @@ parser.add_argument(
     help="Set the PEM bid price in $/MW.",
     action="store",
     type=float,
-    default=25,
+    default=15,
 )
 
 options = parser.parse_args()
-
+# print(options)
 sim_id = options.sim_id
 ne_pmax = options.ne_pmax
 pem_pmax = options.pem_pmax
 pem_bid = options.pem_bid
 p_min = 0
+day_ahead_horizon = 36
+real_time_horizon = 1
+tracking_horizon = 2
+n_tracking_hour = 1
 
-output_dir = Path(f"test_results/NE_double_loop_test_{sim_id}")
+output_dir = Path(f"NE_PEM_double_loop_parameterized_bidder_test_{sim_id}")
 
 solver = pyo.SolverFactory('ipopt')
 
@@ -83,16 +86,16 @@ thermal_generator_params = {
     "p_max": ne_pmax,
     "min_down_time": 0,
     "min_up_time": 0,
-    "ramp_up_60min": wind_pmax,
-    "ramp_down_60min": wind_pmax,
-    "shutdown_capacity": wind_pmax,
-    "startup_capacity": wind_pmax,
+    "ramp_up_60min": pem_pmax,
+    "ramp_down_60min": pem_pmax,
+    "shutdown_capacity": ne_pmax - pem_pmax,
+    "startup_capacity": ne_pmax - pem_pmax,
     "initial_status": 1,                                        # Has been off for 1 hour before start of simulation
     "initial_p_output": 0,
-    "production_cost_bid_pairs": [(p_min, 0), (wind_pmax, 0)],
+    "production_cost_bid_pairs": [(p_min, 0), (pem_pmax, 0)],
     "include_default_p_cost": False,
     "startup_cost_pairs": [(0, 0)],
-    "fixed_commitment": 1,                                      # Same as the plant in the parameter sweep, which was RE-type and always on
+    "fixed_commitment": 1,                                      # Same as the plant in the parameter sweep, which was NE-type and always on
     "spinning_capacity": 0,                                     # Disable participation in some reserve services
     "non_spinning_capacity": 0,
     "supplemental_spinning_capacity": 0,
@@ -109,24 +112,23 @@ model_data = ThermalGeneratorModelData(**thermal_generator_params)
 # PerfectForecaster uses Dataframe with RT and DA wind resource and LMPs. However, for the ParametrizedBidder that
 # makes the bid curve based on the `pem_bid` parameter, the LMPs are not needed and are never accessed.
 # For non-RE plants, the CFs are never accessed.
-forecaster = PerfectForecaster(wind_df)
+NPP_df = pd.DataFrame()
 
-mp_wind_pem_bid = MultiPeriodWindPEM(
-    model_data=model_data,
-    wind_capacity_factors=wind_rt_cfs,
-    wind_pmax_mw=wind_pmax,
-    pem_pmax_mw=pem_pmax
+forecaster = PerfectForecaster(NPP_df)
+
+mp_ne_pem_bid = MultiPeriodNuclear(
+    model_data=model_data
 )
 
 # ParametrizedBidder is an alternative to the stochastic LMP problem, and serves up a bid curve per timestep
 # that is a function of only the bid parameter, PEM capacity and wind resource (DA or RT)
-bidder_object = PEMParametrizedBidder(
-    bidding_model_object=mp_wind_pem_bid,
+mp_ne_pem_bidder = PEMParametrizedBidder(
+    bidding_model_object=mp_ne_pem_bid,
     day_ahead_horizon=day_ahead_horizon,
     real_time_horizon=real_time_horizon,
     solver=solver,
     forecaster=forecaster,
-    renewable_mw=wind_pmax,
+    renewable_mw=ne_pmax,
     pem_marginal_cost=pem_bid,
     pem_mw=pem_pmax
 )
@@ -136,31 +138,25 @@ bidder_object = PEMParametrizedBidder(
 ################################################################################
 
 # same tracking_horizon as parameter sweep and n_tracking_hour does not need to be >1
-mp_wind_pem_track = MultiPeriodWindPEM(
-    model_data=model_data,
-    wind_capacity_factors=wind_rt_cfs,
-    wind_pmax_mw=wind_pmax,
-    pem_pmax_mw=pem_pmax
+mp_ne_pem_track = MultiPeriodNuclear(
+    model_data=model_data
 )
 
 # create a `Tracker` using`mp_wind_battery`
 tracker_object = Tracker(
-    tracking_model_object=mp_wind_pem_track,
+    tracking_model_object=mp_ne_pem_track,
     tracking_horizon=tracking_horizon,
     n_tracking_hour=n_tracking_hour,
     solver=solver,
 )
 
-mp_wind_pem_track_project = MultiPeriodWindPEM(
-    model_data=model_data,
-    wind_capacity_factors=wind_rt_cfs,
-    wind_pmax_mw=wind_pmax,
-    pem_pmax_mw=pem_pmax
+mp_ne_pem_project_track = MultiPeriodNuclear(
+    model_data=model_data
 )
 
 # create a `Tracker` using`mp_wind_battery`
 project_tracker_object = Tracker(
-    tracking_model_object=mp_wind_pem_track_project,
+    tracking_model_object=mp_ne_pem_project_track,
     tracking_horizon=tracking_horizon,
     n_tracking_hour=n_tracking_hour,
     solver=solver,
@@ -171,7 +167,7 @@ project_tracker_object = Tracker(
 ################################################################################
 
 coordinator = DoubleLoopCoordinator(
-    bidder=bidder_object,
+    bidder=mp_ne_pem_bidder,
     tracker=tracker_object,
     projection_tracker=project_tracker_object,
 )
