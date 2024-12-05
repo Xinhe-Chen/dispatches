@@ -173,6 +173,8 @@ coordinator = DoubleLoopCoordinator(
 )
 
 ne_prescient_options["output_directory"] = output_dir
+ne_prescient_options["regulation_up_requirement"] = False
+ne_prescient_options["regulation_down_requirement"] = False
 ne_prescient_options["plugin"] = {
     "doubleloop": {
         "module": coordinator.prescient_plugin_module,
