@@ -112,7 +112,7 @@ model_data = ThermalGeneratorModelData(**thermal_generator_params)
 # PerfectForecaster uses Dataframe with RT and DA wind resource and LMPs. However, for the ParametrizedBidder that
 # makes the bid curve based on the `pem_bid` parameter, the LMPs are not needed and are never accessed.
 # For non-RE plants, the CFs are never accessed.
-NPP_df = pd.DataFrame()
+# NPP_df = pd.DataFrame()
 
 forecaster = PerfectForecaster(NPP_df)
 
