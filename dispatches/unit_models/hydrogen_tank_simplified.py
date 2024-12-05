@@ -163,9 +163,11 @@ see property package for documentation.}""",
 
         # Define holdup variable
         self.tank_holdup_previous = Var(self.flowsheet().time,
+                                        initialize=0,
                                         within=NonNegativeReals,
                                         units=units("amount"))
         self.tank_holdup = Var(self.flowsheet().time,
+                               initialize=0,
                                within=NonNegativeReals,
                                units=units("amount"))
         self.dt = Var(self.flowsheet().time,
