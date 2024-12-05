@@ -91,7 +91,7 @@ thermal_generator_params = {
     "shutdown_capacity": ne_pmax - pem_pmax,
     "startup_capacity": ne_pmax - pem_pmax,
     "initial_status": 1,                                        # Has been off for 1 hour before start of simulation
-    "initial_p_output": 0,
+    "initial_p_output": ne_pmax,
     "production_cost_bid_pairs": [(p_min, 0), (pem_pmax, 0)],
     "include_default_p_cost": False,
     "startup_cost_pairs": [(0, 0)],
