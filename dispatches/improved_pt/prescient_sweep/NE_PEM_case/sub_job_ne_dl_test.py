@@ -21,13 +21,13 @@ def submit_job(pem_mw, pem_bid):
             + "export LD_LIBRARY_PATH=~/.conda/envs/regen/lib:$LD_LIBRARY_PATH \n"
             + "module load gurobi/9.5.1\n"
             + "module load ipopt/3.14.2 \n"
-            + f"python ./run_double_loop_NE_PEM_parameterized_bidder.py --pem_pmax {pem_mw} --pem_bid{pem_bid}"
+            + f"python ./run_double_loop_NE_PEM_parameterized_bidder.py --pem_pmax {pem_mw}"
         )
 
     os.system(f"qsub {file_name}")
 
 
 if __name__ == "__main__":
-    pem_mw = 200 
+    pem_mw = 0
     pem_bid = 15
     submit_job(pem_mw, pem_bid)
