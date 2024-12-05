@@ -75,7 +75,7 @@ real_time_horizon = 1
 tracking_horizon = 2
 n_tracking_hour = 1
 
-output_dir = Path(f"NE_PEM_double_loop_parameterized_bidder_test_{sim_id}")
+output_dir = Path(f"NE_PEM_double_loop_parameterized_bidder_test_mw_{pem_pmax}_bid_{pem_bid}")
 
 solver = pyo.SolverFactory('ipopt')
 
