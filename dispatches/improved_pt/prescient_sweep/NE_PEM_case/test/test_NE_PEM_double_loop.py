@@ -15,8 +15,12 @@ date = '2020-01-01'
 hour = 12
 horizon = 36
 gen = '121_NUCLEAR_1'
-col=  f"{gen}-DACF"
-datetime_index = pd.to_datetime(date) + pd.Timedelta(hours=hour)
-forecast = NPP_df[NPP_df.index >= datetime_index].head(horizon)
-values = forecast[col].values
-# print(values)
+# col=  f"{gen}-DACF"
+# datetime_index = pd.to_datetime(date) + pd.Timedelta(hours=hour)
+# forecast = NPP_df[NPP_df.index >= datetime_index].head(horizon)
+# values = forecast[col].values
+# print(NPP_df.index)
+
+
+pf = PerfectForecaster(NPP_df)
+pf.forecast_day_ahead_capacity_factor(date, hour, gen, horizon)
