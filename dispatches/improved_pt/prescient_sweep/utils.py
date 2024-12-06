@@ -47,8 +47,8 @@ class ParameterSweepInstance:
 
         Prescient().simulate(**prescient_options)
 
-def parameter_sweep_runner(update_function, prescient_options, index):
-    ps = ParameterSweepInstance(update_function, index)
+def parameter_sweep_runner(update_function, prescient_options, index, PEM_data):
+    ps = ParameterSweepInstance(update_function, index, PEM_data)
     ps.run_sweep_instance(prescient_options)
 
 # def run_sweep(update_function, prescient_options, start, stop):

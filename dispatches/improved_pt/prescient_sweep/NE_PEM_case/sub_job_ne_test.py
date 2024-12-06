@@ -3,7 +3,7 @@ import os
 this_file_path = os.path.dirname(os.path.realpath(__file__))
 
 
-def submit_job():
+def submit_job(index, pem_pmax_ratio, pem_bid):
     # create a directory to save job scripts
     job_scripts_dir = os.path.join(this_file_path, "sim_job_scripts")
     if not os.path.isdir(job_scripts_dir):
@@ -21,7 +21,7 @@ def submit_job():
             + "export LD_LIBRARY_PATH=~/.conda/envs/regen/lib:$LD_LIBRARY_PATH \n"
             + "module load gurobi/9.5.1\n"
             + "module load ipopt/3.14.2 \n"
-            + f"python ./nuclear_sweep_test.py"
+            + f"python ./nuclear_sweep_test.py --index {index}, --pem_pmax_ratio {pem_pmax_ratio} --pem_bid {pem_bid}"
         )
 
     os.system(f"qsub {file_name}")
@@ -29,4 +29,7 @@ def submit_job():
 
 if __name__ == "__main__":
 
-    submit_job()
+    index = 9999
+    pem_pmax_ratio = 0.0025
+    pem_bid = 15
+    submit_job(index, pem_pmax_ratio, pem_bid)
