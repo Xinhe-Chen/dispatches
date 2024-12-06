@@ -39,7 +39,7 @@ options = parser.parse_args()
 index = options.index
 pem_pmax_ratio = options.pem_pmax_ratio
 pem_bid = options.pem_bid
-prescient_options["output_directory"] = f"test_ne_pcm_sweep_bid"
+prescient_options["output_directory"] = f"NE_PEM_sweep_bid_{pem_bid}"
 
 PEM_data = {"PEM_indifference_point":pem_bid, "PEM_fraction":pem_pmax_ratio}
 parameter_sweep_runner(update_function, prescient_options, index, PEM_data)
