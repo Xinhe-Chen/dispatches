@@ -21,7 +21,7 @@ def submit_job(index, pem_pmax_ratio, pem_bid):
             + "export LD_LIBRARY_PATH=~/.conda/envs/regen/lib:$LD_LIBRARY_PATH \n"
             + "module load gurobi/9.5.1\n"
             + "module load ipopt/3.14.2 \n"
-            + f"python ./nuclear_sweep_test.py --index {index}, --pem_pmax_ratio {pem_pmax_ratio} --pem_bid {pem_bid}"
+            + f"python ./nuclear_sweep_test.py --index {index} --pem_pmax_ratio {pem_pmax_ratio} --pem_bid {pem_bid}"
         )
 
     os.system(f"qsub {file_name}")
