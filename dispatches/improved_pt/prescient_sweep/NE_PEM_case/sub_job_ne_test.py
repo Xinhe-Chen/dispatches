@@ -9,7 +9,7 @@ def submit_job(index, pem_pmax_ratio, pem_bid):
     if not os.path.isdir(job_scripts_dir):
         os.mkdir(job_scripts_dir)
 
-    file_name = os.path.join(job_scripts_dir, f"test_ne_pcm_sweep.sh")
+    file_name = os.path.join(job_scripts_dir, f"test_ne_pcm_sweep_{index}.sh")
     with open(file_name, "w") as f:
         f.write(
             "#!/bin/bash\n"
