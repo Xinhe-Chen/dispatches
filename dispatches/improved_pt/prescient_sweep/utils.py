@@ -1,5 +1,5 @@
 import copy
-import multiprocessing
+# import multiprocessing
 import os
 import pathlib
 from types import ModuleType
@@ -11,9 +11,10 @@ from prescient.simulator import Prescient
 
 class ParameterSweepInstance:
 
-    def __init__(self, update_function, index):
+    def __init__(self, update_function, index, PEM_data):
         self.update_function = update_function
         self.index = index 
+        self.PEM_data = PEM_data
 
     def _register_prescient_plugins(self, context, options, plugin_config):
 
@@ -26,10 +27,10 @@ class ParameterSweepInstance:
         return ConfigDict()
 
     def _modify_DA(self, prescient_options, simulator, deterministic_ruc_instance, ruc_date, ruc_hour): 
-        self.update_function(deterministic_ruc_instance, self.index)
+        self.update_function(deterministic_ruc_instance, self.PEM_data)
 
     def _modify_RT(self, prescient_options, simulator, sced_instance):
-        self.update_function(sced_instance, self.index)
+        self.update_function(sced_instance, self.PEM_data)
 
     def run_sweep_instance(self, prescient_options):
 
@@ -50,10 +51,15 @@ def parameter_sweep_runner(update_function, prescient_options, index):
     ps = ParameterSweepInstance(update_function, index)
     ps.run_sweep_instance(prescient_options)
 
-def run_sweep(update_function, prescient_options, start, stop):
-    arguments = [ (update_function, prescient_options, idx) for idx in range(start, stop) ]
-    for idx in range(start, stop):
-        multiprocessing.Process(target=parameter_sweep_runner, args=(update_function, prescient_options, idx)).start()
+# def run_sweep(update_function, prescient_options, start, stop):
+    # arguments = [ (update_function, prescient_options, idx) for idx in range(start, stop) ]
+    # for idx in range(start, stop):
+    #     multiprocessing.Process(target=parameter_sweep_runner, args=(update_function, prescient_options, idx)).start()
+
+####################################
+# The old run_sweep is from Ben using multiprocessing. 
+####################################
+
 
 class FlattenedIndexMapper:
 
