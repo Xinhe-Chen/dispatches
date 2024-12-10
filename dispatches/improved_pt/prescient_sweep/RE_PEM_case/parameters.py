@@ -11,7 +11,7 @@ def update_function(model_data, PEM_data):
 
     pem["p_min"] = 0.0
     pem["p_max"]["values"] = [min(PEM_data["PEM_fraction"]*installed_capacity, val) for val in gen["p_max"]["values"] ]
-    pem["p_cost"] = PEM_data["PEM_bid"]
+    pem["p_cost"] = PEM_data["PEM_indifference_point"]
 
     model_data.data["elements"]["generator"][pem_name] = pem
     for idx, val in enumerate(gen["p_max"]["values"]):
