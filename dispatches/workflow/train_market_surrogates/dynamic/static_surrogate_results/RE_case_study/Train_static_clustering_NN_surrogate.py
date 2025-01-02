@@ -17,7 +17,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from dispatches.workflow.train_market_surrogates.dynamic.static_surrogate_results.RE_case_study.clustering_dispatch_wind_pem_static import ClusteringDispatchWind
-from dispatches.workflow.train_market_surrogates.dynamic.static_surrogate_results.Simulation_Data import SimulationData
+from dispatches.workflow.train_market_surrogates.dynamic.static_surrogate_results.Simulation_Data_subscenario import SimulationData
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from tensorflow import keras
@@ -252,10 +252,14 @@ class TrainNNSurrogates:
         
         # set the font for the plots
         font1 = {'weight' : 'bold',
-            'size' : 16}
+            'size' : 18}
         
+        font2 = {
+            'weight' : 'normal',
+            'size'   : 15,
+            }
         x, ws = self._transform_dict_to_array()
-
+        x_train, x_test, ws_train, ws_test = train_test_split(x, ws, test_size=0.2, random_state=0)
         # load the NN model from the given path
         NN_model = keras.models.load_model(NN_model_path)
 
@@ -268,39 +272,46 @@ class TrainNNSurrogates:
         wsm = NN_param['ws_mean']
         wsstd = NN_param['ws_std']
 
-        x_test_scaled = (x - xm)/xstd
-        pred_ws = NN_model.predict(x_test_scaled)
-        pred_ws_unscaled = pred_ws*wsstd + wsm
+        x_train_scaled = (x_train - xm)/xstd
+        x_test_scaled = (x_test - xm)/xstd
+        pred_ws_test = NN_model.predict(x_test_scaled)
+        pred_ws_train = NN_model.predict(x_train_scaled)
+        pred_ws_train_unscaled = pred_ws_train*wsstd + wsm
+        pred_ws_test_unscaled = pred_ws_test*wsstd + wsm
 
         # calculate the R2 for each representative day
-        R2 = []
+        test_R2 = []
 
         for rd in range(self.clustering_class.num_clusters):
             # compute R2 metric
-            wspredict = pred_ws_unscaled.transpose()[rd]
-            SS_tot = np.sum(np.square(ws.transpose()[rd] - wsm[rd]))
-            SS_res = np.sum(np.square(ws.transpose()[rd] - wspredict))
+            ws_test_predict = pred_ws_test_unscaled.transpose()[rd]
+            SS_tot = np.sum(np.square(ws_test.transpose()[rd] - wsm[rd]))
+            SS_res = np.sum(np.square(ws_test.transpose()[rd] - ws_test_predict))
             residual = 1 - SS_res/SS_tot
-            R2.append(residual)
+            test_R2.append(residual)
         
-        print(R2)
+        print(test_R2)
         
         # plot the figure
         for i in range(self.clustering_class.num_clusters):
             fig, axs = plt.subplots()
             axs.set_ylabel('Predicted dispatch frequency [%]', font = font1)
             axs.set_xlabel('True dispatch frequency [%]', font = font1)
-            fig.set_size_inches(6,6)
+            fig.set_size_inches(8,8)
 
-            wst = ws.transpose()[i]
-            wsp = pred_ws_unscaled.transpose()[i]
+            wst_train = ws_train.transpose()[i]
+            wsp_train = pred_ws_train_unscaled.transpose()[i]
+            wst_test = ws_test.transpose()[i]
+            wsp_test = pred_ws_test_unscaled.transpose()[i]
 
-            axs.scatter(wst*100,wsp*100,color = "green",alpha = 0.5)
-            axs.plot([min(wst*100),max(wst*100)],[min(wst*100),max(wst*100)],color = "black")
-            axs.set_title(f'cluster_{i}',font = font1)
-            axs.annotate("$R^2 = {}$".format(round(R2[i],3)),(min(wst*100),max(wst*100)),font = font1)
-
-
+            axs.scatter(wst_train*100, wsp_train*100, color = "blue",alpha = 1, label = 'train')
+            axs.scatter(wst_test*100, wsp_test*100, color = "red", marker="^", alpha = 1, label = 'test')
+            axs.plot([min(min(wst_train*100), min(wst_test*100)),max(max(wst_train*100), max(wst_test*100))],[min(min(wst_train*100), min(wst_test*100)),max(max(wst_train*100), max(wst_test*100))], color = "black")
+            axs.set_title(f'Cluster_{i}',font = font1)
+            xcoor = (max(max(wst_train*100), max(wst_test*100)) - min(min(wst_train*100), min(wst_test*100)))*0.6 + min(min(wst_train*100), min(wst_test*100))
+            axs.annotate("$R^2 = {}$".format(round(test_R2[i],3)), xy=(xcoor, min(min(wst_train*100), min(wst_test*100))), font = font1)
+            
+            plt.legend(prop=font2)
             plt.xticks(fontsize=15)
             plt.yticks(fontsize=15)
             plt.tick_params(direction="in",top=True, right=True)

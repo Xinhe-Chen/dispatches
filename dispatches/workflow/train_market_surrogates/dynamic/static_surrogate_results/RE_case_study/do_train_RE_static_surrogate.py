@@ -36,9 +36,9 @@ def main():
     simulation_data = SimulationData(dispatch_data_path, input_data_path, num_sims, case_type)
     NNtrainer = TrainNNSurrogates(simulation_data, clustering_class, clustering_model_path)
 
-    model = NNtrainer.train_NN_frequency([4,45,75,45,num_clusters])
+    # model = NNtrainer.train_NN_frequency([4,45,75,45,num_clusters])
     NN_model_path = f'static_surrogate/ss_surrogate_model_wind_pmax'
-    NN_param_path = f'static/ss_surrogate_param_wind_pmax.json'
+    NN_param_path = f'static_surrogate/ss_surrogate_param_wind_pmax.json'
     # NNtrainer.save_model(model,NN_model_path,NN_param_path)
     NNtrainer.plot_R2_results(NN_model_path, NN_param_path)
 
