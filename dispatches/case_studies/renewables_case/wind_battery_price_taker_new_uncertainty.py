@@ -229,7 +229,7 @@ def build_sp_model(input_params, backcaster):
     # res_dict['stage_1_elec_out'] = value(m.stage_1_model.blocks[0].process.fs.battery.elec_out[0.0])
     # res_dict['stage_1_init_et'] = value(m.stage_1_model.blocks[0].process.fs.battery.initial_energy_throughput)
     # res_dict['stage_1_step_0_et'] = value(m.stage_1_model.blocks[0].process.fs.battery.energy_throughput[0.0])
-    res_dict['revenue'] = [value(m.rev)]
+    res_dict['revenue'] = [value(m.stage_1_model.elec_revenue)]
     res_dict['wind_gen'] = [value(m.stage_1_model.blocks[i].process.fs.windpower.electricity[0]) * 1e-3 for i in range(horizon)]
     res_dict['batt_to_grid'] = [value(m.stage_1_model.blocks[i].process.fs.battery.elec_out[0]) * 1e-3 for i in range(horizon)]
     res_dict['wind_to_grid'] = [value(m.stage_1_model.blocks[i].process.fs.splitter.grid_elec[0]) * 1e-3 for i in range(horizon)]
@@ -272,6 +272,9 @@ pb = PriceBackcaster(signal, scenario=scenario, pointer=0, horizon=horizon, futu
 
 total_res_dict = build_rolling_horizon_model(input_params, pb, days=366)
 # print(total_res_dict)
+# res_path = "test_wb_new_uncertainty_scenario3_24_48.json"
+# with open(res_path, "w") as f:
+#     json.dump(total_res_dict, f)
 
 parent_path = "wind_battery_price_taker_uncertainty"
 if not os.path.exists(parent_path):
@@ -281,7 +284,7 @@ scenario_path = os.path.join(parent_path, f"scenario_{scenario}")
 if not os.path.exists(scenario_path):
     os.makedirs(scenario_path)
 
-duration_path = os.path.join(scenario_path, "duration_{duration}")
+duration_path = os.path.join(scenario_path, f"duration_{duration}")
 if not os.path.exists(duration_path):
     os.makedirs(duration_path)
 
