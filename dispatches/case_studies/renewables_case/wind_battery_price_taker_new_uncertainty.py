@@ -13,9 +13,10 @@
 #################################################################################
 import numpy as np
 import pandas as pd
-from numbers import Real
+import os
 from pathlib import Path
 from functools import partial
+import json
 from Backcaster_of_price_taker import PricetakerBackcaster, PriceBackcaster
 from dispatches.case_studies.renewables_case.load_parameters import *
 from wind_battery_LMP import wind_battery_variable_pairs, wind_battery_om_costs, initialize_mp, wind_battery_model, wind_battery_mp_block 
@@ -241,8 +242,6 @@ def build_rolling_horizon_model(input_params, backcaster, days=3):
     
     return total_res_dict
 
-
-
 input_params = default_input_params.copy()
 input_params["design_opt"] = False
 input_params["extant_wind"] = True
@@ -263,13 +262,21 @@ lmps[lmps>500] = 500
 signal = lmps # even we use rt lmp signals, we call it DA_LMPs to simplify the work.
 pb = PriceBackcaster(signal, scenario=scenario, pointer=0, horizon=horizon, future_horizon=future_horizon)
 
-# res_dict = build_sp_model(input_params, pb)
-# print(res_dict)
-
-total_res_dict = build_rolling_horizon_model(input_params, pb, days=3)
+total_res_dict = build_rolling_horizon_model(input_params, pb, days=366)
 # print(total_res_dict)
 
-import json
-res_path = f"test_wb_new_uncertainty_scenario{3}_{horizon}_{future_horizon}.json"
+parent_path = "wind_battery_price_taker_uncertainty"
+if not os.path.exists(parent_path):
+    os.makedirs(parent_path)
+
+scenario_path = os.path.join(parent_path, f"scenario_{scenario}")
+if not os.path.exists(scenario_path):
+    os.makedirs(scenario_path)
+
+duration_path = os.path.join(scenario_path, "duration_{duration}")
+if not os.path.exists(duration_path):
+    os.makedirs(duration_path)
+
+res_path = os.path.join(duration_path, f"Wind_battery_pt_uncertainty_new_scenario_{scenario}_duration_{duration}_ratio_{battery_ratio}.json")
 with open(res_path, "w") as f:
     json.dump(total_res_dict, f)
