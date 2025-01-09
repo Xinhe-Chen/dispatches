@@ -100,8 +100,15 @@ def update_wind_capacity_factors(wind_capacity_factor, pointer, horizon, future_
         for i, j in zip(range(0, horizon), range(pointer*24, pointer*24 + horizon)):
             updated_wind_capacity_factors[i] = wind_capacity_factor[j]
     else:
-        for i, j in zip(range(0, future_horizon), range(pointer*24 + horizon, pointer*24 + horizon + future_horizon)):
-            updated_wind_capacity_factors[i] = wind_capacity_factor[j]
+        if pointer*24 + horizon + future_horizon >= 366*24:
+            overflow_hours = pointer*24 + horizon + future_horizon - 366*24
+            for i, j in zip(range(0, future_horizon-overflow_hours), range(pointer*24 + horizon, 366*24)):
+                updated_wind_capacity_factors[i] = wind_capacity_factor[j]
+            for i in range(0, overflow_hours):
+                updated_wind_capacity_factors[future_horizon-overflow_hours+i] = wind_capacity_factor[i]
+        else:
+            for i, j in zip(range(0, future_horizon), range(pointer*24 + horizon, pointer*24 + horizon + future_horizon)):
+                updated_wind_capacity_factors[i] = wind_capacity_factor[j]
     
     return updated_wind_capacity_factors
 
@@ -233,6 +240,7 @@ def build_sp_model(input_params, backcaster):
 def build_rolling_horizon_model(input_params, backcaster, days=3):
     total_res_dict = {}
     for i in range(days):
+        print(f"Solving for Day {i}...")
         backcaster.pointer = i
         res_dict = build_sp_model(input_params, backcaster)
         # update the battery soc and energy throughput
