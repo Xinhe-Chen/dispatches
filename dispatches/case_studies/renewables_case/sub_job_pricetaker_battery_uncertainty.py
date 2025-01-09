@@ -57,9 +57,9 @@ if __name__ == "__main__":
     battery_ratio = 0.1
 
     # test_for_single_case
-    submit_job(battery_ratio, battery_duration, scenario)
+    # submit_job(battery_ratio, battery_duration, scenario)
     
-    # for i in range(1 ,11, 1):
-    #     battery_ratio = i/10
+    for i in range(1 ,11, 1):
+        battery_ratio = np.round(i/10, 2)
 
-    #     submit_job(battery_ratio, battery_duration, scenario) 
+        submit_job(battery_ratio, battery_duration, scenario) 
