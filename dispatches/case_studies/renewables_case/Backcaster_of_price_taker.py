@@ -247,3 +247,232 @@ class PricetakerBackcaster:
                 price_scenarios.append(self.reshaped_price_signals[i])
 
         return price_scenarios
+
+
+class PriceBackcaster:
+    """
+    This backcaster is for running "wind_battery_price_taker_new_uncertainty"
+    """
+
+    def __init__(self, price_signals, scenario, pointer, horizon, future_horizon):
+        self.price_signals = price_signals
+        self.scenario = scenario
+        self.pointer = pointer
+        self.horizon = horizon
+        self.future_horizon = future_horizon
+
+        self._check_inputs()
+        self.reshaped_price_signals  = self._reshape_price_signals()
+
+    def _check_inputs(self):
+        """
+        check the inputs for the class is valid.
+        """
+        if not isinstance(self.horizon, int):
+            raise TypeError(
+                "Given horizon is not an int object. Horizon as int is expected."
+            ) 
+        
+        if not isinstance(self.future_horizon, int):
+            raise TypeError(
+                "Given future_horizon is not an int object. future_horizon as int is expected."
+            )  
+
+        if not isinstance(self.scenario, int):
+            raise TypeError(
+                "Given scenario is not an int object. Scenario as int is expected."
+            )    
+
+        price_length = len(self.price_signals)
+
+        if price_length < self.horizon + self.future_horizon:
+            raise ValueError(
+                f"The length of the price should be greater than {sum(self.future_horizon + self.horizon)}, but the give price signal is of length {price_length}"
+            )
+
+        if price_length < self.horizon*self.scenario + 24:
+            raise ValueError(
+                f"The length of the price signal is not enough long for the price-taker optimization with {self.scenario} scenarios" 
+            )
+        
+        if self.horizon % 24 != 0 or self.future_horizon % 24 != 0:
+            raise ValueError(
+                "The horizon and future horizon should be multiple of 24."
+            )
+        
+        if self.future_horizon < self.horizon:
+            raise ValueError(
+                "The planning horizon should be greater or equal to the horizon"
+            )
+        
+    @property
+    def price_signals(self):
+        """
+        Property getter for price_signal.
+
+        Returns:
+            int: max historical days
+        """
+
+        return self._price_signals
+    
+    @price_signals.setter
+    def price_signals(self, value):
+        """
+        Property setter for price_signal.
+
+        Arguments:
+            value: intended value for price_signal.
+
+        Returns:
+            None
+        """
+
+        self._price_signals = value
+    
+    @property
+    def horizon(self):
+        """
+        Property getter for horizon.
+
+        Returns:
+            int: horizon
+        """
+
+        return self._horizon
+    
+    @horizon.setter
+    def horizon(self, value):
+        """
+        Property setter for horizon.
+
+        Arguments:
+            value: intended value for horizon.
+
+        Returns:
+            None
+        """
+
+        self._horizon = value
+
+    @property
+    def scenario(self):
+        """
+        Property getter for scenario.
+
+        Returns:
+            int: scenario
+        """
+
+        return self._scenario
+    
+    @scenario.setter
+    def scenario(self, value):
+        """
+        Property setter for scenario.
+
+        Arguments:
+            value: intended value for scenario.
+
+        Returns:
+            None
+        """
+
+        self._scenario = value
+
+    @property
+    def future_horizon(self):
+        """
+        Property getter for future_horizon.
+
+        Returns:
+            int: future_horizon
+        """
+
+        return self._future_horizon
+    
+    @future_horizon.setter
+    def future_horizon(self, value):
+        """
+        Property setter for future_horizon.
+
+        Arguments:
+            value: intended value for future_horizon.
+
+        Returns:
+            None
+        """
+
+        self._future_horizon = value
+
+    
+    def _reshape_price_signals(self):
+        """
+        reshape the price signal according to the given scenarios and horizons.
+
+        Returns:
+            reshaped price signals.
+        """
+
+        signal_len = len(self.price_signals)
+
+        if signal_len % self.horizon != 0:
+            _logger.warning(
+                f"The length of the price signal is not divisible by {self.horizon}. Drop the last {signal_len % self.horizon} data."
+            )
+            drop_index = signal_len - signal_len % self.horizon
+            self.price_signals = self.price_signals[0:drop_index]
+
+        # reshape the data by horizons.
+        # use list to store the price data
+        reshaped_price_signal = []
+        num_periods = len(self.price_signals) // self.horizon
+        for i in range(num_periods):
+            start_index = i*self.horizon
+            end_index = i*self.horizon + self.horizon
+            
+            # if the planning_horizon > horizon, the last period will overflow the index. In this case, we use the first x periods of the price signal.
+            if end_index > len(self.price_signals):
+                new_end_index = end_index - len(self.price_signals)
+                # connect two pieces of the data
+                p1 = list(self.price_signals[start_index:])
+                p2 = list(self.price_signals[:new_end_index])
+                reshaped_price_signal.append(p1+p2)
+            else:    
+                reshaped_price_signal.append(list(self.price_signals[start_index:end_index]))
+        
+        return reshaped_price_signal
+    
+    def generate_stage_1_price_signals(self):
+        """
+        stage_1 price_signal is in the length of self.horizon
+        """
+        stage_1_price_signal = self.reshaped_price_signals[self.pointer]
+        
+        return stage_1_price_signal
+    
+
+    def generate_stage_2_price_signals(self):
+        """
+        stage_2 price_signal is in the length of self.future_horizon
+        """
+        multipler = self.future_horizon // self.horizon
+        if self.pointer >= self.scenario + 1:
+            stage_2_price_signal = []
+            _signals = self.reshaped_price_signals[self.pointer-self.scenario-1:self.pointer]
+
+        else:
+            # if not enough days to backcast (beginning of the year), use the end-of-year data.
+            stage_2_price_signal = []
+            lack_number = self.scenario + 1 - self.pointer
+            _signal_1 = self.reshaped_price_signals[:self.pointer+1]
+            _signal_2 = self.reshaped_price_signals[-lack_number:]
+            _signals = _signal_2 + _signal_1
+            
+        for i in range(self.scenario):
+            scenario_signals = []
+            for j in range(multipler):
+                scenario_signals += _signals[i+j]
+            stage_2_price_signal.append(scenario_signals)
+        
+        return stage_2_price_signal
