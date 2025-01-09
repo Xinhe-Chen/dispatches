@@ -34,7 +34,8 @@ from pyomo.environ import (Constraint,
                            NonNegativeReals,
                            Reference,
                            value)
-from pyomo.util.infeasible import log_infeasible_constraints
+from argparse import ArgumentParser
+# from pyomo.util.infeasible import log_infeasible_constraints
 # import logging
 
 # _logger = logging.getLogger(__name__)
@@ -42,9 +43,41 @@ from pyomo.util.infeasible import log_infeasible_constraints
 # this is for the new form of stochastic programming proposed in meeting Jan 6 2025.
 # Stage 1 variables are the decisions of day 1 decisions. Stage 2 variables are (scenarios) of
 
+usage = "Run wind-battery pricetaker optimization with uncertainty (rolling horizon)"
+parser = ArgumentParser(usage)
+parser.add_argument(
+    "--battery_ratio",
+    dest="battery_ratio",
+    help="Indicate the battery ratio to the wind farm.",
+    action="store",
+    type=float,
+    default=0.1,
+)
+
+parser.add_argument(
+    "--duration",
+    dest="duration",
+    help="the battery duration hours",
+    action="store",
+    type=int,
+    default=4,
+)
+
+parser.add_argument(
+    "--scneario",
+    dest="scenario",
+    help="The number of scenarios in the stochastic optimization",
+    action="store",
+    type=int,
+    default=3,
+)
+
+options = parser.parse_args()
+battery_ratio = options.battery_ratio
+duration = options.duration
+scenario = options.scenario
 horizon = 24
 future_horizon = 48
-scenario = 3
 
 def wind_battery_periodic_variable_pairs(m1, m2):
     """
@@ -170,27 +203,30 @@ def build_sp_model(input_params, backcaster):
         
         # constraint of soc_init = soc_end
         setattr(m, f"Constraint_consistent_soc_{i}", Constraint(expr = m.stage_1_model.blocks[0].process.fs.battery.initial_state_of_charge==scenario_model.blocks[future_horizon-1].process.fs.battery.state_of_charge[0.0]))
-
     m.rev = Expression(expr=m.stage_1_model.elec_revenue + 1/(scenario) * sum(getattr(m, f"scenario_{i}").elec_revenue for i in range(scenario)))
     m.obj = Objective(expr=m.rev, sense=maximize)
     
-
     opt = SolverFactory("ipopt")
-    soln = opt.solve(m, tee=True,  options={'tol': 1e-6})
+    soln = opt.solve(m, tee=True,  options={'tol': 1e-8})
     # infeasible = log_infeasible_constraints(m)
     
     # record results
-    res_dict['stage_1_start_soc'] = value(m.stage_1_model.blocks[0].process.fs.battery.initial_state_of_charge)
+    # res_dict['stage_1_start_soc'] = value(m.stage_1_model.blocks[0].process.fs.battery.initial_state_of_charge)
     res_dict['stage_1_end_soc'] = value(m.stage_1_model.blocks[horizon-1].process.fs.battery.state_of_charge[0.0])
-    res_dict['stage_2_start_soc'] = [value(getattr(m, f"scenario_{i}").blocks[0].process.fs.battery.initial_state_of_charge) for i in range(scenario)]
-    res_dict['stage_2_end_soc'] = [value(getattr(m, f"scenario_{i}").blocks[future_horizon-1].process.fs.battery.state_of_charge[0.0]) for i in range(scenario)]
+    # res_dict['stage_2_start_soc'] = [value(getattr(m, f"scenario_{i}").blocks[0].process.fs.battery.initial_state_of_charge) for i in range(scenario)]
+    # res_dict['stage_2_end_soc'] = [value(getattr(m, f"scenario_{i}").blocks[future_horizon-1].process.fs.battery.state_of_charge[0.0]) for i in range(scenario)]
     res_dict['stage_1_end_energy_throughput'] = value(m.stage_1_model.blocks[horizon-1].process.fs.battery.energy_throughput[0.0])
     res_dict['solver_stat'] = str(soln.solver.termination_condition)
-    res_dict['stage_1_elec_in'] = value(m.stage_1_model.blocks[0].process.fs.battery.elec_in[0.0])
-    res_dict['stage_1_elec_out'] = value(m.stage_1_model.blocks[0].process.fs.battery.elec_out[0.0])
-    res_dict['stage_1_init_et'] = value(m.stage_1_model.blocks[0].process.fs.battery.initial_energy_throughput)
-    res_dict['stage_1_step_0_et'] = value(m.stage_1_model.blocks[0].process.fs.battery.energy_throughput[0.0])
-    res_dict['revenue'] = value(m.rev)
+    # res_dict['stage_1_elec_in'] = value(m.stage_1_model.blocks[0].process.fs.battery.elec_in[0.0])
+    # res_dict['stage_1_elec_out'] = value(m.stage_1_model.blocks[0].process.fs.battery.elec_out[0.0])
+    # res_dict['stage_1_init_et'] = value(m.stage_1_model.blocks[0].process.fs.battery.initial_energy_throughput)
+    # res_dict['stage_1_step_0_et'] = value(m.stage_1_model.blocks[0].process.fs.battery.energy_throughput[0.0])
+    res_dict['revenue'] = [value(m.rev)]
+    res_dict['wind_gen'] = [value(m.stage_1_model.blocks[i].process.fs.windpower.electricity[0]) * 1e-3 for i in range(horizon)]
+    res_dict['batt_to_grid'] = [value(m.stage_1_model.blocks[i].process.fs.battery.elec_out[0]) * 1e-3 for i in range(horizon)]
+    res_dict['wind_to_grid'] = [value(m.stage_1_model.blocks[i].process.fs.splitter.grid_elec[0]) * 1e-3 for i in range(horizon)]
+    res_dict['wind_to_batt'] = [value(m.stage_1_model.blocks[i].process.fs.battery.elec_in[0]) * 1e-3 for i in range(horizon)]
+    res_dict['total_elec_out'] = [value(m.stage_1_model.blocks[i].process.elec_output) * 1e-3 for i in range(horizon)]
     return res_dict
 
 def build_rolling_horizon_model(input_params, backcaster, days=3):
@@ -211,7 +247,7 @@ input_params = default_input_params.copy()
 input_params["design_opt"] = False
 input_params["extant_wind"] = True
 input_params["wind_mw"] = 847
-input_params["batt_mw"] = 84.7
+input_params["batt_mw"] = np.round(847*battery_ratio, 2)
 input_params["tank_size"] = 0
 # initial soc = 0 and energy thoughput
 input_params["battery_soc"] = 0
@@ -230,8 +266,8 @@ pb = PriceBackcaster(signal, scenario=scenario, pointer=0, horizon=horizon, futu
 # res_dict = build_sp_model(input_params, pb)
 # print(res_dict)
 
-total_res_dict = build_rolling_horizon_model(input_params, pb, days=20)
-print(total_res_dict)
+total_res_dict = build_rolling_horizon_model(input_params, pb, days=3)
+# print(total_res_dict)
 
 import json
 res_path = f"test_wb_new_uncertainty_scenario{3}_{horizon}_{future_horizon}.json"
