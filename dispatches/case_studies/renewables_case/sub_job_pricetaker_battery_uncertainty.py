@@ -44,7 +44,7 @@ def submit_job(
             + "export LD_LIBRARY_PATH=~/.conda/envs/regen/lib:$LD_LIBRARY_PATH \n"
             + "module load gurobi/9.5.1\n"
             + "module load ipopt/3.14.2 \n"
-            + f"python ./wind_battery_price_taker_new_uncertainty.py --battery_ratio {battery_ratio}  --duration {battery_duration} --scenario {scenario}"
+            + f"python ./wind_battery_price_taker_uncertainty.py --battery_ratio {battery_ratio}  --duration {battery_duration} --scenario {scenario}"
         )
 
     os.system(f"qsub {file_name}")
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     
     scenario = 3
     battery_duration = duration
-    battery_ratio = 0.1
+    # battery_ratio = 0.1
 
     # test_for_single_case
     # submit_job(battery_ratio, battery_duration, scenario)

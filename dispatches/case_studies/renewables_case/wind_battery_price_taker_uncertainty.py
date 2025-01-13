@@ -12,6 +12,7 @@
 # "https://github.com/gmlc-dispatches/dispatches".
 #################################################################################
 import numpy as np
+import os
 import pandas as pd
 from numbers import Real
 from pathlib import Path
@@ -35,7 +36,8 @@ from pyomo.environ import (Constraint,
                            NonNegativeReals,
                            Reference,
                            value)
-from pyomo.util.infeasible import log_infeasible_constraints
+from argparse import ArgumentParser
+# from pyomo.util.infeasible import log_infeasible_constraints
 # import logging
 
 # _logger = logging.getLogger(__name__)
@@ -44,12 +46,46 @@ from pyomo.util.infeasible import log_infeasible_constraints
 # this is for the stochastic programming. x scenarios with 36 hours planning horizon and 24 hours are realized.
 # Currently we pause this work because we have problem specifying the initial soc of the coming day in the rolling horizion optimization.
 
+usage = "Run wind-battery pricetaker optimization with uncertainty (rolling horizon)"
+parser = ArgumentParser(usage)
+parser.add_argument(
+    "--battery_ratio",
+    dest="battery_ratio",
+    help="Indicate the battery ratio to the wind farm.",
+    action="store",
+    type=float,
+    default=0.1,
+)
+
+parser.add_argument(
+    "--duration",
+    dest="duration",
+    help="the battery duration hours",
+    action="store",
+    type=int,
+    default=4,
+)
+
+parser.add_argument(
+    "--scenario",
+    dest="scenario",
+    help="The number of scenarios in the stochastic optimization",
+    action="store",
+    type=int,
+    default=3,
+)
+
+options = parser.parse_args()
+battery_ratio = options.battery_ratio
+duration = options.duration
+scenario = options.scenario
+
 lmps_df = pd.read_parquet(Path(__file__).parent / "data" / "303_LMPs_15_reserve_500_shortfall.parquet")
 lmps = lmps_df['LMP'].values
 lmps[lmps>500] = 500
 signal = lmps # even we use rt lmp signals, we call it DA_LMPs to simplify the work.
 
-scenario = 3
+# scenario = 3
 horizon = 24
 planning_horizon = 72
 
@@ -234,7 +270,7 @@ def run_wind_battery_price_taker_uncertainty(input_params, backcaster, days=5):
         # opt = SolverFactory("ipopt")
         opt = SolverFactory("gurobi")
 
-        soln = opt.solve(m, tee=True)
+        soln = opt.solve(m, tee=False)
         # infeasible = log_infeasible_constraints(m)
         
         # record the hourly power output for each scenario, unit is MW.
@@ -275,7 +311,7 @@ input_params = default_input_params.copy()
 input_params["design_opt"] = False
 input_params["extant_wind"] = True
 input_params["wind_mw"] = 847
-input_params["batt_mw"] = 84.7
+input_params["batt_mw"] = np.round(battery_ratio * 847, 2)
 input_params["tank_size"] = 0
 # initial soc = 0 and energy thoughput
 input_params["battery_soc"] = 0
@@ -283,10 +319,22 @@ input_params["energy_throughput"] = 0
 # backcaster.pointer=365
 res_dict = run_wind_battery_price_taker_uncertainty(input_params, backcaster, days=366)
 # print(res_dict)
-res_path = "test_wind_battery_pt_uncertainty.json"
+
+parent_path = "wind_battery_price_taker_uncertainty"
+if not os.path.exists(parent_path):
+    os.makedirs(parent_path)
+
+scenario_path = os.path.join(parent_path, f"scenario_{scenario}")
+if not os.path.exists(scenario_path):
+    os.makedirs(scenario_path)
+
+duration_path = os.path.join(scenario_path, f"duration_{duration}")
+if not os.path.exists(duration_path):
+    os.makedirs(duration_path)
+
+res_path = os.path.join(duration_path, f"Wind_battery_pt_uncertainty_new_scenario_{scenario}_duration_{duration}_ratio_{battery_ratio}.json")
 with open(res_path, "w") as f:
     json.dump(res_dict, f)
-
 # print(input_params['wind_resource'])
 # backcaster.pointer = 0
 # price_signal = backcaster.generate_price_scenarios()
