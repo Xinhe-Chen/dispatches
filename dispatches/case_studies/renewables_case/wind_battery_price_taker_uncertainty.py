@@ -66,10 +66,28 @@ def wind_battery_periodic_variable_pairs(m1, m2):
     pairs = [(m1.fs.battery.nameplate_power, m2.fs.battery.nameplate_power)]
     return pairs
 
-def update_wind_capacity_factors(input_param, pointer, planning_horizon=planning_horizon):
+# def update_wind_capacity_factors(input_param, pointer, planning_horizon=planning_horizon):
+#     updated_wind_capacity_factors = {}
+#     for i, j in zip(range(0, planning_horizon), range(pointer*24, pointer*24 + planning_horizon)):
+#         updated_wind_capacity_factors[i] = input_param['wind_resource'][j]
+    
+#     return updated_wind_capacity_factors
+
+def update_wind_capacity_factors(wind_capacity_factor, pointer, planning_horizon):
+    """
+    Update the wind capacity factor for the rolling horizion optimization
+    """
     updated_wind_capacity_factors = {}
-    for i, j in zip(range(0, planning_horizon), range(pointer*24, pointer*24 + planning_horizon)):
-        updated_wind_capacity_factors[i] = input_param['wind_resource'][j]
+
+    if pointer*24 + planning_horizon >= 366*24:
+        overflow_hours = pointer*24 + planning_horizon - 366*24
+        for i, j in zip(range(0, planning_horizon - overflow_hours), range(pointer*24, 366*24)):
+            updated_wind_capacity_factors[i] = wind_capacity_factor[j]
+        for i in range(0, overflow_hours):
+            updated_wind_capacity_factors[planning_horizon-overflow_hours+i] = wind_capacity_factor[i]
+    else:
+        for i, j in zip(range(0, planning_horizon), range(pointer*24, pointer*24 + planning_horizon)):
+            updated_wind_capacity_factors[i] = wind_capacity_factor[j]
     
     return updated_wind_capacity_factors
 
@@ -156,11 +174,11 @@ def build_scenario_model(price_signals, input_params, backcaster, n_time_points=
 def run_wind_battery_price_taker_uncertainty(input_params, backcaster, days=5):
     # rolling horizon optimization
     res_dict = {}
-    for i in range(days):
+    for i in range(364,366):
         print(f"Build and solve for Day {i}")
         # update wind resource capacity factor
         backcaster.pointer = i
-        input_params["wind_resource"] = update_wind_capacity_factors(default_input_params, backcaster.pointer, planning_horizon)
+        input_params["wind_resource"] = update_wind_capacity_factors(default_input_params["wind_resource"], backcaster.pointer, planning_horizon=planning_horizon)
         
         res_dict[i] = {}
         m = ConcreteModel(name = f'wind_battery_price_taker_with_uncertainty_day_{i}')
@@ -262,7 +280,8 @@ input_params["tank_size"] = 0
 # initial soc = 0 and energy thoughput
 input_params["battery_soc"] = 0
 input_params["energy_throughput"] = 0
-res_dict = run_wind_battery_price_taker_uncertainty(input_params, backcaster, days=366)
+# backcaster.pointer=365
+res_dict = run_wind_battery_price_taker_uncertainty(input_params, backcaster, days=1)
 # print(res_dict)
 res_path = "test_wind_battery_pt_uncertainty.json"
 with open(res_path, "w") as f:
