@@ -174,7 +174,7 @@ def build_scenario_model(price_signals, input_params, backcaster, n_time_points=
 def run_wind_battery_price_taker_uncertainty(input_params, backcaster, days=5):
     # rolling horizon optimization
     res_dict = {}
-    for i in range(364,366):
+    for i in range(days):
         print(f"Build and solve for Day {i}")
         # update wind resource capacity factor
         backcaster.pointer = i
@@ -281,7 +281,7 @@ input_params["tank_size"] = 0
 input_params["battery_soc"] = 0
 input_params["energy_throughput"] = 0
 # backcaster.pointer=365
-res_dict = run_wind_battery_price_taker_uncertainty(input_params, backcaster, days=1)
+res_dict = run_wind_battery_price_taker_uncertainty(input_params, backcaster, days=366)
 # print(res_dict)
 res_path = "test_wind_battery_pt_uncertainty.json"
 with open(res_path, "w") as f:
