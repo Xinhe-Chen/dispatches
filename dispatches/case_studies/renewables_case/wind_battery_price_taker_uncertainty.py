@@ -261,8 +261,11 @@ input_params["tank_size"] = 0
 # initial soc = 0 and energy thoughput
 input_params["battery_soc"] = 0
 input_params["energy_throughput"] = 0
-res_dict = run_wind_battery_price_taker_uncertainty(input_params, backcaster)
-print(res_dict)
+res_dict = run_wind_battery_price_taker_uncertainty(input_params, backcaster, days=366)
+# print(res_dict)
+res_path = "test_wind_battery_pt_uncertainty.json"
+with open(res_path, "w") as f:
+    json.dump(res_dict, f)
 
 # print(input_params['wind_resource'])
 # backcaster.pointer = 0
