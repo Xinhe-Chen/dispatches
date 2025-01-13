@@ -95,7 +95,7 @@ def build_scenario_model(price_signals, input_params, backcaster, n_time_points=
     scenario_model = mp_wind_battery.pyomo_model
     blks = mp_wind_battery.get_active_process_blocks()
     blks[0].fs.battery.initial_state_of_charge.fix(input_params["battery_soc"])
-    blks[0].fs.battery.initial_energy_throughput.fix(input_params["energy_throughput"])
+    # blks[0].fs.battery.initial_energy_throughput.fix(input_params["energy_throughput"])
     
     scenario_model.wind_system_capacity = Param(default=input_params['wind_mw'] * 1e3, units=pyunits.kW)
     scenario_model.battery_system_capacity = Param(default=input_params['batt_mw'] * 1e3, units=pyunits.kW)
@@ -149,10 +149,11 @@ def build_scenario_model(price_signals, input_params, backcaster, n_time_points=
     scenario_model.elec_revenue = Expression(expr = sum([blk.revenue for blk in blks]))
     scenario_model.total_profit = Expression(expr=sum([blk.profit for blk in blks]))
     scenario_model.horizon_rev = Expression(expr = sum([blk.revenue for blk in blks[0:backcaster.horizon]]))
+    scenario_model.horizon_elec = Expression(expr = sum([blk.elec_output for blk in blks[0:backcaster.horizon]]))
 
     return mp_wind_battery
 
-def run_wind_battery_price_taker_uncertainty(input_params, backcaster, days=3):
+def run_wind_battery_price_taker_uncertainty(input_params, backcaster, days=5):
     # rolling horizon optimization
     res_dict = {}
     for i in range(days):
@@ -202,43 +203,51 @@ def run_wind_battery_price_taker_uncertainty(input_params, backcaster, days=3):
 
         # add m.rev and other data
         m.rev = Expression(expr = 1/backcaster.scenario * sum(m.scenario_blocks[k].pyomo_model.elec_revenue for k in range(backcaster.scenario)))
-        # m.rev_24h = Expression(expr = 1/backcaster.scenario * sum(scenario_list[k].pyomo_model.horizon_rev for k in range(len(scenario_list))))
+        m.profit = Expression(expr = 1/backcaster.scenario * sum(m.scenario_blocks[k].pyomo_model.total_profit for k in range(backcaster.scenario)))
+        
+        # record the 24h data
+        # m.horizon_rev = Expression(expr = sum(m.scenario_blocks[0].pyomo_model.blocks[k].process.fs.revenue for k in range(backcaster.horizon)))
+        m.rev_24h = Expression(expr = 1/backcaster.scenario * sum(m.scenario_blocks[k].pyomo_model.horizon_rev for k in range(backcaster.scenario)))
+        # m.horizon_elec = Expression(expr = sum(m.scenario_blocks[0].pyomo_model.blocks[k].process.fs.elec_output for k in range(backcaster.horizon)))
+        m.elec_24h = Expression(expr = 1/backcaster.scenario * sum(m.scenario_blocks[k].pyomo_model.horizon_elec for k in range(backcaster.scenario)))
         
         # solve m
-        m.obj = Objective(expr = m.rev, sense=maximize)
+        m.obj = Objective(expr = m.profit, sense=maximize)
         opt = SolverFactory("ipopt")
+        # opt = SolverFactory("gurobi")
+
         soln = opt.solve(m, tee=True)
-        infeasible = log_infeasible_constraints(m)
+        # infeasible = log_infeasible_constraints(m)
         # record the hourly power output for each scenario, unit is MW.
-        scenario_data = {}
-        for j in range(backcaster.scenario):
-            scenario_data[j] = {}
+        # scenario_data = {}
+        # for j in range(backcaster.scenario):
+        # scenario_data[i] = {}
             # scenario_data[j]["wind_gen"] = [value(m.scenario_blocks[j].pyomo_model.blocks[k].process.fs.windpower.electricity[0]) * 1e-3 for k in range(backcaster.horizon)]
-            scenario_data[j]["batt_to_grid"] = [value(m.scenario_blocks[j].pyomo_model.blocks[0].process.fs.battery.elec_out[0]) * 1e-3]
-            # scenario_data[j]["wind_to_grid"] = [value(blks[m].fs.splitter.grid_elec[0]) * 1e-3 for m in range(backcaster.horizon)]
-            scenario_data[j]["wind_to_batt"] = [value(m.scenario_blocks[j].pyomo_model.blocks[0].process.fs.battery.elec_in[0]) * 1e-3]
-            # scenario_data[j]["soc"] = [value(m.scenario_blocks[j].pyomo_model.blocks[k].process.fs.battery.state_of_charge[0]) * 1e-3 for k in range(backcaster.horizon)]
-            scenario_data[j]["soc_init"] = value(m.scenario_blocks[j].pyomo_model.blocks[0].process.fs.battery.initial_state_of_charge) * 1e-3
-            # scenario_data[j]["soc_end"] = value(m.scenario_blocks[j].pyomo_model.blocks[horizon-1].process.fs.battery.state_of_charge[0]) * 1e-3
-            scenario_data[j]["eng_init"] = value(m.scenario_blocks[j].pyomo_model.blocks[0].process.fs.battery.initial_energy_throughput) * 1e-3
+        res_dict[i]["batt_to_grid"] = [value(m.scenario_blocks[0].pyomo_model.blocks[k].process.fs.battery.elec_out[0]) * 1e-3 for k in range(backcaster.horizon)]
+        res_dict[i]["wind_to_grid"] = [value(m.scenario_blocks[0].pyomo_model.blocks[k].process.fs.splitter.grid_elec[0]) * 1e-3 for k in range(backcaster.horizon)]
+        res_dict[i]["wind_to_batt"] = [value(m.scenario_blocks[0].pyomo_model.blocks[k].process.fs.battery.elec_in[0]) * 1e-3 for k in range(backcaster.horizon)]
+            # scenario_data[j]["eng"] = [value(m.scenario_blocks[j].pyomo_model.blocks[k].process.fs.battery.energy_throughput[0]) * 1e-3 for k in range(backcaster.horizon)]
+            # scenario_data[j]["soc_init"] = value(m.scenario_blocks[j].pyomo_model.blocks[0].process.fs.battery.initial_state_of_charge) * 1e-3
+        res_dict[i]["soc_end"] = [value(m.scenario_blocks[0].pyomo_model.blocks[k].process.fs.battery.state_of_charge[0]) * 1e-3 for k in range(backcaster.horizon)]
+            # scenario_data[j]["eng_init"] = value(m.scenario_blocks[j].pyomo_model.blocks[0].process.fs.battery.initial_energy_throughput) * 1e-3
             # scenario_data[j]["eng_0"] = value(m.scenario_blocks[j].pyomo_model.blocks[horizon-1].process.fs.battery.energy_throughput[0]) * 1e-3
             # scenario_data[j]["nameplate_eng"] = value(m.scenario_blocks[j].pyomo_model.blocks[0].process.fs.battery.nameplate_energy) * 1e-3
         # record results
         # res_dict[i]["wind_cf"] = input_params["wind_resource"]
         # res_dict[i]["lmp"] = price_signals
         # res_dict[i]["rev"] = value(m.rev_24h)
-        res_dict[i]["power_data"] = scenario_data
+        # res_dict[i]["power_data"] = scenario_data
         res_dict[i]['solver_stat'] = str(soln.solver.termination_condition)
         # print(value(m.scenario_blocks[0].pyomo_model.blocks[0].process.fs.windpower.electricity[0]))
         # update soc and energy throughput
         input_params["battery_soc"] = value(m.scenario_blocks[0].pyomo_model.blocks[horizon-1].process.fs.battery.state_of_charge[0])
-        input_params["energy_throughput"] = value(m.scenario_blocks[0].pyomo_model.blocks[horizon-1].process.fs.battery.energy_throughput[0])
+        # input_params["energy_throughput"] = value(m.scenario_blocks[0].pyomo_model.blocks[horizon-1].process.fs.battery.energy_throughput[0])
     # m.scenario_blocks[0].pyomo_model.blocks[0].process.fs.battery.accumulate_energy_throughput.pprint()
     # m.scenario_blocks[0].pyomo_model.blocks[0].process.fs.battery.energy_throughput.pprint()
     # m.scenario_blocks[0].pyomo_model.blocks[0].process.fs.battery.initial_energy_throughput.pprint()
     # m.scenario_blocks[0].pyomo_model.blocks[0].process.fs.battery.elec_in.pprint()
     # m.scenario_blocks[0].pyomo_model.blocks[0].process.fs.battery.elec_out.pprint()
-        # m.scenario_blocks[0].pyomo_model.blocks[horizon-1].process.fs.battery.pprint()
+    # m.scenario_blocks[0].pyomo_model.blocks[horizon-1].process.fs.battery.pprint()
     return res_dict
 
 input_params = default_input_params.copy()
