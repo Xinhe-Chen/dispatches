@@ -238,7 +238,7 @@ def run_wind_battery_price_taker_uncertainty(input_params, backcaster, days=5):
         # res_dict[i]["wind_cf"] = input_params["wind_resource"]
         # res_dict[i]["lmp"] = price_signals
         res_dict[i]["rev"] = value(m.rev_24h)
-        res_dict[i]['elec'] = value(m.elec_out)
+        res_dict[i]['elec'] = value(m.elec_24h)
         # res_dict[i]["power_data"] = scenario_data
         res_dict[i]['solver_stat'] = str(soln.solver.termination_condition)
         # print(value(m.scenario_blocks[0].pyomo_model.blocks[0].process.fs.windpower.electricity[0]))
