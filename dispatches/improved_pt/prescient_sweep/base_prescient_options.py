@@ -9,7 +9,7 @@ this_file_path = os.path.dirname(os.path.realpath(__file__))
 shortfall = 500
 prescient_options = {
         "data_path":rtsgmlc_path,
-        "reserve_factor":0.15,
+        "reserve_factor":None,
         "simulate_out_of_sample":True,
         "output_directory":None,
         "monitor_all_contingencies":False,
@@ -26,10 +26,10 @@ prescient_options = {
         "ruc_horizon":36,
         "compute_market_settlements":True,
         "output_solver_logs":False,
-        "price_threshold":shortfall,
-        "transmission_price_threshold":shortfall/2,
+        "price_threshold":None,
+        "transmission_price_threshold":None,
         "contingency_price_threshold":None,
-        "reserve_price_threshold":shortfall/10,
+        "reserve_price_threshold":None,
         "day_ahead_pricing":"aCHP",
         "enforce_sced_shutdown_ramprate":False,
         "ruc_slack_type":"ref-bus-and-branches",
