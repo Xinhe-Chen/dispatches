@@ -22,7 +22,7 @@ from tensorflow.keras.optimizers import Adam
 import numpy as np
 import json
 import matplotlib.pyplot as plt
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 
 class TrainNNSurrogates:
@@ -307,7 +307,8 @@ class TrainNNSurrogates:
         yp_train = pred_y_train_unscaled.transpose()
         yp_test = pred_y_test_unscaled.transpose()
         test_mse = mean_squared_error(yt_test, pred_y_test_unscaled)
-        print(test_mse)
+        test_mae = mean_absolute_error(yt_test, pred_y_test_unscaled)
+        print(test_mse, test_mae)
 
         axs.scatter(yt_train,yp_train,color = "blue",alpha = 1, label = 'train')
         axs.scatter(yt_test,yp_test,color = "red",marker="^",alpha = 1, label = 'test')
