@@ -15,7 +15,7 @@ prescient_options = {
         "monitor_all_contingencies":False,
         "input_format":"rts-gmlc",
         "start_date":"01-01-2020",
-        "num_days":366,
+        "num_days":3,
         "sced_horizon":1,
         "ruc_mipgap":0.01,
 	    "deterministic_ruc_solver": "gurobi",

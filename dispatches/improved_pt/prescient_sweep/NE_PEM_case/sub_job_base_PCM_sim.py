@@ -9,6 +9,7 @@ def submit_job():
         os.mkdir(job_scripts_dir)
 
     file_name = os.path.join(job_scripts_dir, f"base_PCM_sim.sh")
+    env_path = os.path.join("..", "..", "..", "..", "..", "..", ".conda", "envs", "regen")
     with open(file_name, "w") as f:
         f.write(
             "#!/bin/bash\n"
@@ -16,7 +17,7 @@ def submit_job():
             + "#$ -m ae\n"
             + "#$ -q long\n"
             + f"#$ -N base_PCM_sim\n"
-            + "conda activate regen\n"
+            + f"conda activate {env_path}\n"
             + "export LD_LIBRARY_PATH=~/.conda/envs/regen/lib:$LD_LIBRARY_PATH \n"
             + "module load gurobi/9.5.1\n"
             + "module load ipopt/3.14.2 \n"
