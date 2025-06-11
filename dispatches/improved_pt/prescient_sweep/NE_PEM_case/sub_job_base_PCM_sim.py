@@ -9,7 +9,7 @@ def submit_job():
         os.mkdir(job_scripts_dir)
 
     file_name = os.path.join(job_scripts_dir, f"base_PCM_sim.sh")
-    env_path = os.path.join("..", "..", "..", "..", "..", "..", ".conda", "envs", "regen")
+    env_path = os.path.join("..", "..", "..", "..", "..", "..", "..", ".conda", "envs", "regen")
     with open(file_name, "w") as f:
         f.write(
             "#!/bin/bash\n"
