@@ -7,11 +7,12 @@ rtsgmlc_path = rts_gmlc.source_data_path
 this_file_path = os.path.dirname(os.path.realpath(__file__))
 # default some options
 shortfall = 500
+output_path = os.path.join("NE_PEM_case", f"base_case_pcm_benchmark")
 prescient_options = {
         "data_path":rtsgmlc_path,
-        "reserve_factor":None,
+        "reserve_factor":0.0,
         "simulate_out_of_sample":True,
-        "output_directory":None,
+        "output_directory":output_path,
         "monitor_all_contingencies":False,
         "input_format":"rts-gmlc",
         "start_date":"01-01-2020",
@@ -19,14 +20,14 @@ prescient_options = {
         "sced_horizon":1,
         "ruc_mipgap":0.01,
 	    "deterministic_ruc_solver": "gurobi",
-	    "deterministic_ruc_solver_options" : {"threads":2, "heurstrategy":2, "cutstrategy":3, "symmetry":2, "maxnode":1000},
+	#     "deterministic_ruc_solver_options" : {"threads":2, "heurstrategy":2, "cutstrategy":3, "symmetry":2, "maxnode":1000},
         "sced_solver":"gurobi",
         "sced_frequency_minutes":60,
 	    "sced_solver_options" : {"threads":1},
         "ruc_horizon":36,
         "compute_market_settlements":True,
         "output_solver_logs":False,
-        "price_threshold":None,
+        "price_threshold":shortfall,
         "transmission_price_threshold":None,
         "contingency_price_threshold":None,
         "reserve_price_threshold":None,
