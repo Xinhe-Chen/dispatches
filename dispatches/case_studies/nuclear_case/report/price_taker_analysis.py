@@ -356,7 +356,8 @@ def run_exhaustive_enumeration(pem_capex=400, market="DA"):
     electrolyzer and the selling price of hydrogen.
     """
     h2_price = [0.75, 1, 1.25, 1.5, 1.75, 2]
-    pem_capacity = [i / 100 for i in range(5, 51, 5)]
+    # pem_capacity = [i / 100 for i in range(5, 51, 5)]
+    pem_capacity = [0]
 
     h2_demand = 400 * 20
     demand_type = "variable"
@@ -421,9 +422,9 @@ def run_exhaustive_enumeration(pem_capex=400, market="DA"):
     results["capex"] = value(m.capex) / 1e6
     results["fom"] = value(m.fixed_om_cost) / 1e6
 
-    with open("price_taker_pem_" + str(pem_capex) + "_" + market + ".json", "w") as fp:
+    with open("base_case_price_taker_pem_" + str(pem_capex) + "_" + market + ".json", "w") as fp:
         json.dump(results, fp, indent=4)
 
 
 if __name__ == '__main__':
-    run_exhaustive_enumeration(pem_capex=1200, market="RT")
+    run_exhaustive_enumeration(pem_capex=1200, market="DA")
