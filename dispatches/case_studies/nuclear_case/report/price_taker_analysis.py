@@ -405,17 +405,17 @@ def run_exhaustive_enumeration(pem_capex=400, market="DA"):
 
             elec_rev = sum(value(m.period[t].fs.electricity_revenue) for t in m.set_period)
             h2_rev = sum(value(m.period[t].fs.h2_revenue) for t in m.set_period)
-            pem_cap_factor = (
-                sum(value(m.period[t].fs.np_to_electrolyzer) for t in m.set_period) /
-                (pc * 400 * n_hours)
-            )
+            # pem_cap_factor = (
+            #     sum(value(m.period[t].fs.np_to_electrolyzer) for t in m.set_period) /
+            #     (pc * 400 * n_hours)
+            # )
 
             results["elec_rev"][str(idx1) + str(idx2)] = elec_rev / 1e6
             results["h2_rev"][str(idx1) + str(idx2)] = h2_rev / 1e6
             results["net_npv"][str(idx1) + str(idx2)] = value(m.npv) / 1e6
             results["net_profit"][str(idx1) + str(idx2)] = value(m.net_profit) / 1e6
             results["solver_stat"][str(idx1) + str(idx2)] = str(soln.solver.termination_condition)
-            results["pem_cap_factor"][str(idx1) + str(idx2)] = pem_cap_factor
+            # results["pem_cap_factor"][str(idx1) + str(idx2)] = pem_cap_factor
 
             _write_results(m, filename="case_" + str(idx1) + "_" + str(idx2))
 
