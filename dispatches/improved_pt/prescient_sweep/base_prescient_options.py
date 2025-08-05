@@ -11,7 +11,6 @@ output_path = os.path.join("NE_PEM_case", f"base_case_pcm_benchmark")
 prescient_options = {
         "data_path":rtsgmlc_path,
         "reserve_factor": 0.1,
-        "shortfall": shortfall,
         "simulate_out_of_sample":True,
         "output_directory":output_path,
         "monitor_all_contingencies":False,
