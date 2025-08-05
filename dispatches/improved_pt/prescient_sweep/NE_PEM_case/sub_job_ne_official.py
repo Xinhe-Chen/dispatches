@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import json
 
 this_file_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -31,10 +32,19 @@ def submit_job(index, pem_pmax_ratio, pem_bid):
 if __name__ == "__main__":
     
     # for the sweep, pem_pmax_ratio starts from 0.01 (4MW) to 1.0 (400MW)
-    idx = 1
-    pem_bid = 15
-    for i in np.linspace(0.01, 1, 100):
-        pem_pmax_ratio = np.round(i,2)
-        index = idx
-        idx += 1    
-        submit_job(index, pem_pmax_ratio, pem_bid)
+    idx = 0
+    sweep_record = {}
+    job_scripts_dir = os.path.join(this_file_path, "sim_job_scripts")
+    pem_bid = list(range(5, 50, 5))  # bid from 5 to 45 with step 5
+    PEM_ratio = list(range(1, 11, 1))
+    for i in PEM_ratio:
+        for bid in pem_bid:
+            ratio = np.round(i/10, 1)  # convert to 0.1, 0.2, ..., 1.0
+            index = idx
+            submit_job(index, ratio, bid)
+            sweep_record[idx] = {"pem_pmax_ratio": ratio, "pem_bid": bid}
+            idx += 1
+
+    # save the sweep record
+    with open(os.path.join(job_scripts_dir, "sweep_record.json"), "w") as f:
+        json.dump(sweep_record, f)
