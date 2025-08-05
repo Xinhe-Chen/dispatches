@@ -10,14 +10,14 @@ shortfall = 500
 output_path = os.path.join("NE_PEM_case", f"base_case_pcm_benchmark")
 prescient_options = {
         "data_path":rtsgmlc_path,
-        "reserve_factor": None,
+        "reserve_factor": 0.1,
         "shortfall": shortfall,
         "simulate_out_of_sample":True,
         "output_directory":output_path,
         "monitor_all_contingencies":False,
         "input_format":"rts-gmlc",
         "start_date":"01-01-2020",
-        "num_days":3,
+        "num_days":366,
         "sced_horizon":1,
         "ruc_mipgap":0.01,
 	    "deterministic_ruc_solver": "gurobi",
