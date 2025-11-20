@@ -18,7 +18,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dispatches.workflow.train_market_surrogates.dynamic.static_surrogate_results.RE_case_study.clustering_dispatch_wind_pem_static import ClusteringDispatchWind
 from dispatches.workflow.train_market_surrogates.dynamic.static_surrogate_results.Simulation_Data_subscenario import SimulationData
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -144,7 +145,7 @@ class TrainNNSurrogates:
         return np.array(x), np.array(y)
 
 
-    def train_NN_frequency(self, NN_size):
+    def train_NN_frequency(self, NN_size, cross_val=None, return_history=False):
 
         '''
         train the dispatch frequency NN surrogate model.
@@ -153,74 +154,309 @@ class TrainNNSurrogates:
         Arguments:
             
             NN_size: list, the size of neural network. (input nodes, hidden layer 1 size, ..., output nodes )
+            cross_val: int or None, number of folds for cross validation. If None, simple train-test split is used.
+            return_history: bool, whether to return training history along with model
 
         Return:
 
             model: the NN model
+            history: training history (if return_history=True)
         '''
         x, ws = self._transform_dict_to_array()
 
         # the first element of the NN_size dict is the input layer size, the last element is output layer size. 
         input_layer_size = NN_size[0]
         output_layer_size = NN_size[-1]
-        del NN_size[0]
-        del NN_size[-1]
+        hidden_layers = NN_size[1:-1]  # Store hidden layers without modifying original list
 
-        # train test split
-        x_train, x_test, ws_train, ws_test = train_test_split(x, ws, test_size=0.2, random_state=0)
+        if cross_val is not None and cross_val > 1:
+            print(f"Performing {cross_val}-fold cross validation...")
+            return self._train_frequency_with_cross_validation(x, ws, input_layer_size, output_layer_size, hidden_layers, cross_val)
+        else:
+            # Original train-test split approach
+            x_train, x_test, ws_train, ws_test = train_test_split(x, ws, test_size=0.2, random_state=0)
 
-        # scale the data both x and ws
-        xm = np.mean(x_train,axis = 0)
-        xstd = np.std(x_train,axis = 0)
-        wsm = np.mean(ws_train,axis = 0)
-        wsstd = np.std(ws_train,axis = 0)
-        x_train_scaled = (x_train - xm) / xstd
-        ws_train_scaled = (ws_train - wsm)/ wsstd
+            # scale the data both x and ws
+            xm = np.mean(x_train,axis = 0)
+            xstd = np.std(x_train,axis = 0)
+            wsm = np.mean(ws_train,axis = 0)
+            wsstd = np.std(ws_train,axis = 0)
+            x_train_scaled = (x_train - xm) / xstd
+            ws_train_scaled = (ws_train - wsm)/ wsstd
 
-        # train a keras MLP (multi-layer perceptron) Regressor model
-        model = keras.Sequential(name='static_clustering_NN')
-        model.add(layers.Input(input_layer_size))
-        for layer_size in NN_size:
-            model.add(layers.Dense(layer_size, activation='sigmoid'))
-        model.add(layers.Dense(output_layer_size))
-        model.compile(optimizer=Adam(), loss='mse')
-        history = model.fit(x=x_train_scaled, y=ws_train_scaled, verbose=0, epochs=500)
+            # train a keras MLP (multi-layer perceptron) Regressor model
+            model = keras.Sequential(name='static_clustering_NN')
+            model.add(layers.Input(input_layer_size))
+            for layer_size in hidden_layers:
+                model.add(layers.Dense(layer_size, activation='sigmoid'))
+            model.add(layers.Dense(output_layer_size))
+            model.compile(optimizer=Adam(), loss='mse')
+            history = model.fit(x=x_train_scaled, y=ws_train_scaled, verbose=0, epochs=500, validation_split=0.1)
 
-        print("Making NN Predictions...") 
+            print("Making NN Predictions...") 
 
-        # normalize the data
-        x_test_scaled = (x_test - xm) / xstd
-        ws_test_scaled = (ws_test - wsm) / wsstd
+            # normalize the data
+            x_test_scaled = (x_test - xm) / xstd
+            ws_test_scaled = (ws_test - wsm) / wsstd
 
-        print("Evaluate on test data")
-        evaluate_res = model.evaluate(x_test_scaled, ws_test_scaled)
-        print(evaluate_res)
-        print(history.history['loss'][-1])
-        predict_ws = np.array(model.predict(x_test_scaled))
-        predict_ws_unscaled = predict_ws*wsstd + wsm
+            print("Evaluate on test data")
+            evaluate_res = model.evaluate(x_test_scaled, ws_test_scaled)
+            print(evaluate_res)
+            print(history.history['loss'][-1])
+            if 'val_loss' in history.history:
+                print(history.history['val_loss'][-1])
+            predict_ws = np.array(model.predict(x_test_scaled))
+            predict_ws_unscaled = predict_ws*wsstd + wsm
 
-        R2 = []
+            R2 = []
 
-        for rd in range(self.clustering_class.num_clusters):
-            # compute R2 metric
-            wspredict = predict_ws_unscaled.transpose()[rd]
-            SS_tot = np.sum(np.square(ws_test.transpose()[rd] - wsm[rd]))
-            SS_res = np.sum(np.square(ws_test.transpose()[rd] - wspredict))
-            residual = 1 - SS_res/SS_tot
-            R2.append(residual)
+            for rd in range(self.clustering_class.num_clusters):
+                # compute R2 metric
+                wspredict = predict_ws_unscaled.transpose()[rd]
+                SS_tot = np.sum(np.square(ws_test.transpose()[rd] - wsm[rd]))
+                SS_res = np.sum(np.square(ws_test.transpose()[rd] - wspredict))
+                residual = 1 - SS_res/SS_tot
+                R2.append(residual)
 
-        print(R2)
+            print('The R2 of frequency surrogate validation is:', R2)
 
-        xmin = list(np.min(x_train_scaled, axis=0))
-        xmax = list(np.max(x_train_scaled, axis=0))
+            xmin = list(np.min(x_train_scaled, axis=0))
+            xmax = list(np.max(x_train_scaled, axis=0))
 
-        data = {"xm_inputs":list(xm),"xstd_inputs":list(xstd),"xmin":xmin,"xmax":xmax,
-            "ws_mean":list(wsm),"ws_std":list(wsstd)}
+            data = {"xm_inputs":list(xm),"xstd_inputs":list(xstd),"xmin":xmin,"xmax":xmax,
+                "ws_mean":list(wsm),"ws_std":list(wsstd)}
 
-        self._model_params = data
+            self._model_params = data
+
+            if return_history:
+                return model, history
+            else:
+                return model
 
 
-        return model
+    def _train_frequency_with_cross_validation(self, x, ws, input_layer_size, output_layer_size, hidden_layers, k_folds):
+        '''
+        Train frequency neural network with k-fold cross validation
+        
+        Arguments:
+            x: input features
+            ws: target values (dispatch frequencies)
+            input_layer_size: size of input layer
+            output_layer_size: size of output layer
+            hidden_layers: list of hidden layer sizes
+            k_folds: int, number of folds for cross validation
+            
+        Returns:
+            model: best performing model from cross validation
+        '''
+        
+        kf = KFold(n_splits=k_folds, shuffle=True, random_state=42)
+        
+        fold_scores = []
+        fold_models = []
+        fold_params = []
+        
+        print(f"Starting {k_folds}-fold cross validation for frequency model...")
+        
+        for fold, (train_idx, val_idx) in enumerate(kf.split(x)):
+            print(f"Training fold {fold + 1}/{k_folds}")
+            
+            # Split data for this fold
+            x_train_fold, x_val_fold = x[train_idx], x[val_idx]
+            ws_train_fold, ws_val_fold = ws[train_idx], ws[val_idx]
+            
+            # Scale the data
+            xm = np.mean(x_train_fold, axis=0)
+            xstd = np.std(x_train_fold, axis=0)
+            wsm = np.mean(ws_train_fold, axis=0)
+            wsstd = np.std(ws_train_fold, axis=0)
+            
+            # Avoid division by zero
+            xstd = np.where(xstd == 0, 1, xstd)
+            wsstd = np.where(wsstd == 0, 1, wsstd)
+            
+            x_train_scaled = (x_train_fold - xm) / xstd
+            ws_train_scaled = (ws_train_fold - wsm) / wsstd
+            x_val_scaled = (x_val_fold - xm) / xstd
+            ws_val_scaled = (ws_val_fold - wsm) / wsstd
+            
+            # Create and train model
+            model = keras.Sequential(name=f'static_clustering_NN_fold_{fold}')
+            model.add(layers.Input(input_layer_size))
+            for layer_size in hidden_layers:
+                model.add(layers.Dense(layer_size, activation='sigmoid'))
+            model.add(layers.Dense(output_layer_size))
+            model.compile(optimizer=Adam(), loss='mse')
+            
+            # Train the model
+            history = model.fit(
+                x=x_train_scaled, 
+                y=ws_train_scaled, 
+                verbose=0, 
+                epochs=500, 
+                validation_data=(x_val_scaled, ws_val_scaled)
+            )
+            
+            # Evaluate on validation set
+            val_loss = model.evaluate(x_val_scaled, ws_val_scaled, verbose=0)
+            predict_ws_val = model.predict(x_val_scaled, verbose=0)
+            predict_ws_val_unscaled = predict_ws_val * wsstd + wsm
+            
+            # Calculate R2 for each cluster
+            cluster_R2 = []
+            cluster_RMSE = []
+            
+            for rd in range(self.clustering_class.num_clusters):
+                # compute R2 metric for each cluster
+                wspredict = predict_ws_val_unscaled.transpose()[rd]
+                SS_tot = np.sum(np.square(ws_val_fold.transpose()[rd] - wsm[rd]))
+                SS_res = np.sum(np.square(ws_val_fold.transpose()[rd] - wspredict))
+                R2 = 1 - SS_res / SS_tot
+                
+                # Calculate RMSE for this cluster
+                rmse = mean_squared_error(ws_val_fold.transpose()[rd], wspredict, squared=False)
+                
+                cluster_R2.append(R2)
+                cluster_RMSE.append(rmse)
+            
+            # Calculate overall metrics
+            overall_R2 = np.mean(cluster_R2)
+            overall_RMSE = np.mean(cluster_RMSE)
+            
+            print(f"Fold {fold + 1} - Overall R2: {overall_R2:.4f}, Overall RMSE: {overall_RMSE:.4f}, Val Loss: {val_loss:.4f}")
+            
+            fold_scores.append({
+                'overall_R2': overall_R2,
+                'overall_RMSE': overall_RMSE,
+                'cluster_R2': cluster_R2,
+                'cluster_RMSE': cluster_RMSE,
+                'val_loss': val_loss,
+                'fold': fold + 1
+            })
+            fold_models.append(model)
+            
+            # Store parameters for this fold
+            xmin = list(np.min(x_train_scaled, axis=0))
+            xmax = list(np.max(x_train_scaled, axis=0))
+            params = {
+                "xm_inputs": list(xm),
+                "xstd_inputs": list(xstd),
+                "xmin": xmin,
+                "xmax": xmax, 
+                "ws_mean": list(wsm),
+                "ws_std": list(wsstd)
+            }
+            fold_params.append(params)
+        
+        # Calculate cross-validation statistics
+        cv_r2_scores = [score['overall_R2'] for score in fold_scores]
+        cv_rmse_scores = [score['overall_RMSE'] for score in fold_scores]
+        cv_loss_scores = [score['val_loss'] for score in fold_scores]
+        
+        print("\n" + "="*50)
+        print("FREQUENCY MODEL CROSS VALIDATION RESULTS")
+        print("="*50)
+        print(f"Overall R2 - Mean: {np.mean(cv_r2_scores):.4f} ± {np.std(cv_r2_scores):.4f}")
+        print(f"Overall RMSE - Mean: {np.mean(cv_rmse_scores):.4f} ± {np.std(cv_rmse_scores):.4f}")
+        print(f"Val Loss - Mean: {np.mean(cv_loss_scores):.4f} ± {np.std(cv_loss_scores):.4f}")
+        
+        # Print cluster-wise statistics
+        print("\nCluster-wise R2 Statistics:")
+        for cluster_idx in range(self.clustering_class.num_clusters):
+            cluster_r2_values = [score['cluster_R2'][cluster_idx] for score in fold_scores]
+            print(f"Cluster {cluster_idx} - R2: {np.mean(cluster_r2_values):.4f} ± {np.std(cluster_r2_values):.4f}")
+        print("="*50)
+        
+        # Select best model based on highest overall R2
+        best_fold_idx = np.argmax(cv_r2_scores)
+        best_model = fold_models[best_fold_idx]
+        best_params = fold_params[best_fold_idx]
+        
+        print(f"Best model from fold {best_fold_idx + 1} with overall R2: {cv_r2_scores[best_fold_idx]:.4f}")
+        
+        # Store the best model parameters and cross-validation results
+        self._model_params = best_params
+        self._cv_results = {
+            'fold_scores': fold_scores,
+            'mean_overall_r2': np.mean(cv_r2_scores),
+            'std_overall_r2': np.std(cv_r2_scores),
+            'mean_overall_rmse': np.mean(cv_rmse_scores),
+            'std_overall_rmse': np.std(cv_rmse_scores),
+            'best_fold': best_fold_idx + 1,
+            'num_clusters': self.clustering_class.num_clusters
+        }
+        
+        return best_model
+
+
+    def get_cross_validation_results(self):
+        '''
+        Get cross-validation results if available
+        
+        Returns:
+            dict: Cross-validation results or None if not available
+        '''
+        if hasattr(self, '_cv_results'):
+            return self._cv_results
+        else:
+            return None
+
+
+    def plot_training_history(self, history, save_path=None):
+        '''
+        Plot training and validation loss from Keras history object
+        
+        Arguments:
+            history: Keras History object from model.fit()
+            save_path: str, optional path to save the plot
+        
+        Returns:
+            None
+        '''
+        
+        # Set up the plot style
+        font1 = {
+            'weight': 'bold',
+            'size': 18,
+        }
+        
+        font2 = {
+            'weight': 'normal',
+            'size': 15,
+        }
+        
+        # Create the plot
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+        
+        # Plot training & validation loss
+        ax1.plot(history.history['loss'], label='Training Loss', color='blue', linewidth=2)
+        if 'val_loss' in history.history:
+            ax1.plot(history.history['val_loss'], label='Validation Loss', color='red', linewidth=2)
+        ax1.set_title('Model Loss', fontdict=font1)
+        ax1.set_xlabel('Epoch', fontdict=font2)
+        ax1.set_ylabel('Loss (MSE)', fontdict=font2)
+        ax1.legend(prop=font2)
+        ax1.grid(True, alpha=0.3)
+        ax1.tick_params(labelsize=12)
+        
+        # Plot learning curve (loss in log scale for better visualization)
+        ax2.semilogy(history.history['loss'], label='Training Loss', color='blue', linewidth=2)
+        if 'val_loss' in history.history:
+            ax2.semilogy(history.history['val_loss'], label='Validation Loss', color='red', linewidth=2)
+        ax2.set_title('Model Loss (Log Scale)', fontdict=font1)
+        ax2.set_xlabel('Epoch', fontdict=font2)
+        ax2.set_ylabel('Loss (MSE) - Log Scale', fontdict=font2)
+        ax2.legend(prop=font2)
+        ax2.grid(True, alpha=0.3)
+        ax2.tick_params(labelsize=12)
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"Training history plot saved to: {save_path}")
+        
+        plt.show()
 
 
     def save_model(self, model, NN_model_path, NN_param_path):
@@ -241,9 +477,15 @@ class TrainNNSurrogates:
         # save the NN model
         model.save(NN_model_path)
 
+        # Include cross-validation results if available
+        params_to_save = self._model_params.copy()
+        if hasattr(self, '_cv_results'):
+            params_to_save['cross_validation_results'] = self._cv_results
+            print('Cross-validation results included in saved parameters')
+
         # save scaling parameters
         with open(NN_param_path, 'w') as f:
-            json.dump(self._model_params, f)
+            json.dump(params_to_save, f, indent=2)
 
         return
 

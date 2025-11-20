@@ -93,12 +93,20 @@ def main():
             NN_rev_param_path = str(pathlib.Path.cwd().joinpath(f'{case_type}_case_study', 'revenue', f'{case_type}_revenue_params_{hidden_layers}_{hidden_nodes}.json'))
         
         NNtrainer_rev = TrainNNSurrogates(simulation_data, data_path, filter_opt)
-        # model_rev = NNtrainer_rev.train_NN_revenue([input_layer_node,hidden_nodes,hidden_nodes,1])
+
+        # cross validation training
+        # model_rev = NNtrainer_rev.train_NN_revenue([input_layer_node,hidden_nodes,hidden_nodes,1], cross_val=5, return_history=False)
+        # cv_result = NNtrainer_rev.get_cross_validation_results()
+        # print(cv_result)
+
+        # simple train-test split training
+        model_rev, history = NNtrainer_rev.train_NN_revenue([input_layer_node,hidden_nodes,hidden_nodes,1], cross_val=None, return_history=True)
+        NNtrainer_rev.plot_training_history(history, save_path="RE_rev_training_history.png")
         
         # save to given path
-        NNtrainer_rev.model_type = 'revenue'
+        # NNtrainer_rev.model_type = 'revenue'
         # NNtrainer_rev.save_model(model_rev, NN_rev_model_path, NN_rev_param_path)
-        NNtrainer_rev.plot_R2_results(NN_rev_model_path, NN_rev_param_path, fig_name = f'{case_type}_revenue_plot_{hidden_layers}_{hidden_nodes}.jpg')
+        # NNtrainer_rev.plot_R2_results(NN_rev_model_path, NN_rev_param_path, fig_name = f'{case_type}_revenue_plot_{hidden_layers}_{hidden_nodes}.jpg')
 
     # TrainNNSurrogates, dispatch frequency
     if model_type == "frequency":
