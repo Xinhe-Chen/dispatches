@@ -158,9 +158,21 @@ def conceptual_design_dynamic_RE(input_params, PEM_bid=None, PEM_MW=None, verbos
     for i in range(num_rep_days):
         m.constraint_list_dispatch.add(m.frequency_surrogate_nonneg[i] == 0.5 * pyo.sqrt(m.nn_frequency.outputs[i]**2 + 0.001**2) + 0.5 * m.nn_frequency.outputs[i])
     
-    # sum of outputs of dispatch surrogate may not be 1, scale them. 
+    # # sum of outputs of dispatch surrogate may not be 1, scale them. 
+    # for i in range(num_rep_days):
+    #     m.constraint_list_dispatch.add(m.frequency_surrogate[i] == m.frequency_surrogate_nonneg[i] / sum(value(m.frequency_surrogate_nonneg[j]) for j in range(num_rep_days)))
+
+    # Normalise the dispatch frequencies so they sum to one.
+    # NOTE: the denominator must stay symbolic. Using value() here freezes it at
+    # its construction-time value (exactly 1.0 given the initialisation above),
+    # which silently disables the normalisation.
+    m.frequency_sum = Var(domain=NonNegativeReals, bounds=(0.5, 2.0), initialize=1.0)
+    m.frequency_sum_def = Constraint(
+        expr=m.frequency_sum == sum(m.frequency_surrogate_nonneg[j] for j in m.dis_set))
     for i in range(num_rep_days):
-        m.constraint_list_dispatch.add(m.frequency_surrogate[i] == m.frequency_surrogate_nonneg[i] / sum(value(m.frequency_surrogate_nonneg[j]) for j in range(num_rep_days)))
+        m.constraint_list_dispatch.add(
+            m.frequency_surrogate[i] * m.frequency_sum == m.frequency_surrogate_nonneg[i])
+
 
     # dispatch frequency flowsheet, each scenario is a model. 
     scenario_models = []
@@ -219,7 +231,7 @@ def conceptual_design_dynamic_RE(input_params, PEM_bid=None, PEM_MW=None, verbos
             expr=scenario_model.hydrogen_produced[0] * m.h2_price)
         scenario_model.op_var_cost = Expression( 
             expr=input_params['pem_var_cost'] * blks[0].fs.pem.electricity[0])
-        scenario_model.var_total_cost = Expression(expr=scenario_model.dispatch_frequency * 8760 * scenario_model.op_var_cost)
+        scenario_model.var_total_cost = Expression(expr=scenario_model.dispatch_frequency * 8784 * scenario_model.op_var_cost)
 
         setattr(m, 'scenario_model_{}'.format(i), scenario_model)
         scenario_models.append(scenario_model)
