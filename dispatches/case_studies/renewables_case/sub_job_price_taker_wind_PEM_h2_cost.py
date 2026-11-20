@@ -121,7 +121,7 @@ def submit_job(
             + "#$ -m a\n"
             + "#$ -q long\n"
             + f"#$ -N wind_PEM_pt_h2cost_sim_{sim_id}\n"
-            + "conda activate ../../../../../../../afs/crc.nd.edu/user/x/xchen24/.conda/envs/regen\n"
+            + "conda activate regen\n"
             + "export LD_LIBRARY_PATH=~/.conda/envs/regen/lib:$LD_LIBRARY_PATH \n"
             + "module load gurobi\n"
             + "module load ipopt/3.14.2 \n"
