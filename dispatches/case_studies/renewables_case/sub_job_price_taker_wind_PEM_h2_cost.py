@@ -56,17 +56,24 @@ this_file_path = os.path.dirname(os.path.realpath(__file__))
 # Scenario: PEM stack replacement (DOE current status) + complete liquid
 # delivery path. Edit here; the hydrogen prices follow automatically.
 # ===========================================================================
-DELIVERY_COST = 3.2        # chi^del   [$/kg delivered]  complete liquid path
-DELIVERY_LOSS = 0.0        # eps^del   [-]               0 for the base liquid case
+DELIVERY_COST = 0.50       # chi^del   [$/kg delivered]  terminal 0.21 + truck 0.29
+DELIVERY_LOSS = 0.005      # eps^del   [-]               99.5% liquefaction mass eff
 DELIVERY_FIXED = 0.0       # kappa^del [$/yr]
-COND_ENERGY = 0.0          # theta^cond [kWh/kg]         0 = off-taker service
+COND_ENERGY = 11.0         # theta^cond [kWh/kg]         liquefaction behind the meter
 STACK_LIFE = 40000.0       # Lambda^stack [operating h]  DOE 2022 status
 STACK_REPL_FRAC = 0.11     # sigma^stack [-]             DOE Program Record 24005
 
-# Behind-the-meter liquefaction variant (rotates the line as well as shifting
-# it). Uncomment to run it instead:
-# DELIVERY_LOSS = 0.02
-# COND_ENERGY = 11.0
+# The plant owns and runs the liquefier, so it pays in electricity
+# (COND_ENERGY) rather than in a service fee, and DELIVERY_COST covers only the
+# stages it still buys. Argonne IN025 slide 18 splits the liquid path as
+# liquefaction 2.69 + terminal 0.21 + truck 0.29 = 3.19 $/kg, so
+# DELIVERY_COST = 0.21 + 0.29 = 0.50 and COND_ENERGY = 11 kWh/kg.
+#
+# EXTERNAL-SERVICE variant (off-taker owns the liquefier). Its all-in fee
+# already includes the liquefier and its power, so COND_ENERGY must be 0 or
+# liquefaction is double-counted:
+# DELIVERY_COST = 3.2
+# COND_ENERGY = 0.0
 
 # --- constants that MUST match the model -----------------------------------
 # RE_flowsheet.py : m.fs.pem.electricity_to_mol.fix(0.00275984)

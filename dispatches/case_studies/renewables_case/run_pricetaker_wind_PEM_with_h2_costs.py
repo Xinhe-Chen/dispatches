@@ -49,6 +49,19 @@ Default parameters are the DOE CURRENT STATUS case:
    gamma^pem = pem_cap_cost = 1200 $/kW  (load_parameters.py)
    -> phi^rep = 0.11*1200/40000 = 0.0033 $/kWh = 3.30 $/MWh
 
+The delivery defaults are the LIQUID PATH WITH BEHIND-THE-METER LIQUEFACTION:
+the plant owns the liquefier, so it pays in electricity rather than a service
+fee. Splitting Argonne IN025 slide 18 (liquefaction 2.69 + terminal 0.21 +
+truck 0.29 = 3.19 $/kg):
+
+   chi^del    = 0.50 $/kg   terminal 0.21 + road transport 0.29
+   theta^cond = 11 kWh/kg   liquefaction (NREL 88818 gives 9-13)
+   eps^del    = 0.005       0.5% mass loss (NREL 88818, 99.5% mass efficiency)
+
+Do NOT combine chi^del = 3.2 (the all-in EXTERNAL service, which already pays
+for the liquefier and its power) with theta^cond > 0; that double-counts
+liquefaction, and the script raises ValueError if you try.
+
 Pass --stack_life 0 to disable replacement entirely.
 
 Because phi^rep is levelized with no discounting, it overstates the true cost of
@@ -169,22 +182,28 @@ parser.add_argument(
 parser.add_argument(
     "--delivery_cost",
     dest="delivery_cost",
-    help="chi^del: all-in delivery charge per DELIVERED kg [$/kg]. "
-         "Literature anchors: 0.2 LH2 trucking only (NREL 88818, 200 km round "
-         "trip); 0.9 GH2 trucking only (Argonne IN025, 400 km); 1.9 complete "
-         "compressed-gas path; 3.2 complete liquid path.",
+    help="chi^del: delivery charge per DELIVERED kg [$/kg], covering only the "
+         "stages the plant BUYS. Default 0.50 = terminal 0.21 + road transport "
+         "0.29 (Argonne IN025 slide 18), i.e. liquefaction is done behind the "
+         "meter via --cond_energy. Other anchors: 0.2 LH2 trucking only "
+         "(NREL 88818, 200 km round trip); 0.9 GH2 trucking only (Argonne, "
+         "400 km); 1.9 complete compressed-gas path; 3.2 complete liquid path "
+         "as an EXTERNAL service -- use 3.2 only with --cond_energy 0, or "
+         "liquefaction is double-counted.",
     action="store",
     type=float,
-    default=0.0,
+    default=0.50,
 )
 parser.add_argument(
     "--delivery_loss",
     dest="delivery_loss",
     help="eps^del: delivery loss fraction NOT already covered by "
-         "--delivery_cost (e.g. boil-off). Use 0 for the gas path.",
+         "--delivery_cost. Default 0.005 is the 0.5%% mass loss implied by the "
+         "99.5%% liquefaction mass efficiency in NREL 88818. Use 0 for the gas "
+         "path.",
     action="store",
     type=float,
-    default=0.0,
+    default=0.005,
 )
 parser.add_argument(
     "--delivery_fixed",
@@ -199,12 +218,13 @@ parser.add_argument(
     "--cond_energy",
     dest="cond_energy",
     help="theta^cond: behind-the-meter conditioning electricity [kWh/kg]. "
-         "0 = conditioning is an off-taker service (use --delivery_cost only); "
-         "2.87 = 350-bar compression; 9-13 = liquefaction (NREL 88818). "
-         "When > 0, pem_mw denotes the whole hydrogen train.",
+         "Default 11 = liquefaction done by the plant (NREL 88818 gives 9-13). "
+         "2.87 = 350-bar compression. Set 0 when conditioning is an off-taker "
+         "service, and then raise --delivery_cost to the all-in fee. When > 0, "
+         "pem_mw denotes the whole hydrogen train.",
     action="store",
     type=float,
-    default=0.0,
+    default=11.0,
 )
 
 # ----------------------- PEM stack replacement arguments -------------------
@@ -250,6 +270,16 @@ if stack_life < 0.0:
     raise ValueError(f"--stack_life must be >= 0; got {stack_life}")
 if stack_repl_frac < 0.0:
     raise ValueError(f"--stack_repl_frac must be >= 0; got {stack_repl_frac}")
+# Guard against double-counting liquefaction: an all-in liquid service fee
+# (~3.2 $/kg) already pays for the liquefier AND its electricity, so it must
+# not be combined with behind-the-meter conditioning energy.
+if cond_energy > 0.0 and delivery_cost > 1.5:
+    raise ValueError(
+        f"--delivery_cost {delivery_cost} with --cond_energy {cond_energy} "
+        "double-counts liquefaction. Either buy the service "
+        "(--delivery_cost 3.2 --cond_energy 0) or run the liquefier behind "
+        "the meter (--delivery_cost 0.50 --cond_energy 11)."
+    )
 
 # ---------------------------------------------------------------------------
 # PEM stack replacement reserve
