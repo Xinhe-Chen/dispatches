@@ -13,10 +13,58 @@
 #################################################################################
 """
 Wind + PEM price-taker model WITH hydrogen conditioning (liquefaction or
-compression) and road-transport costs.
+compression), road-transport costs, and PEM stack replacement.
 
-MODEL EXTENSION
----------------
+MODEL EXTENSION -- PEM STACK REPLACEMENT
+----------------------------------------
+One stack replacement costs sigma^stack * gamma^pem * Omega^pem and is consumed
+over Lambda^stack full-load-equivalent hours. Annual equivalent full-load hours
+are sum_t P_t^pem / Omega^pem, so
+
+   REPL = (sigma^stack * gamma^pem * Omega^pem / Lambda^stack)
+          * sum_t P_t^pem / Omega^pem
+        = phi^rep * sum_t P_t^pem ,     phi^rep = sigma^stack*gamma^pem/Lambda^stack
+
+Omega^pem CANCELS, so replacement is a pure variable cost in $/kWh that adds
+onto phi_2^pem (which is 0 in load_parameters.py). The model stays linear; no
+binaries and no integer replacement counter. Manuscript Eq. (1h) becomes
+
+   VOM = sum_t ( phi_2^gen P_t^gen + (phi_2^pem + phi^rep) P_t^pem )
+
+and the KKT threshold gains the variable-cost term:
+
+   rho_t^LMP  ><  psi^eff * rho^net - (phi_2^pem + phi^rep)*1000   [$/MWh]
+
+So replacement LOWERS the optimal PEM bid. Unlike the delivery fee (a pure axis
+shift) this is an axis REMAP of the saved PCM sweep,
+   rho^H2 = (B + phi^rep*1000) / (psi^eff*(1-eps^del)) + chi^del,
+which is still a reindexing of the existing (Omega^pem, B) grid -- no new
+Prescient runs.
+
+Default parameters are the DOE CURRENT STATUS case:
+   sigma^stack = 0.11   (DOE Program Record 24005: 11% of total installed
+                         capital, applied every 40,000 operating hours)
+   Lambda^stack = 40,000 h  (DOE PEM technical targets, 2022 status;
+                         80,000 h is the 2026 and ultimate target)
+   gamma^pem = pem_cap_cost = 1200 $/kW  (load_parameters.py)
+   -> phi^rep = 0.11*1200/40000 = 0.0033 $/kWh = 3.30 $/MWh
+
+Pass --stack_life 0 to disable replacement entirely.
+
+Because phi^rep is levelized with no discounting, it overstates the true cost of
+future outlays. The script reports the discount correction
+
+   kappa(T) = (T / PA) * sum_{j=1..n} (1+r)^(-jT),   T = Lambda^stack / EFLH
+
+so a second pass can be run with --stack_repl_frac scaled by kappa. kappa
+depends on EFLH, which is an output, hence the two-pass structure.
+
+NOTE: replacement sits inside VOM and is therefore deducted before tax wherever
+tax is applied. This is LESS conservative than the current SI, which states
+"include no extra replacement tax shield". (This script has no tax term.)
+
+MODEL EXTENSION -- HYDROGEN DELIVERY
+------------------------------------
 Let  rho^H2    = hydrogen price AT THE CUSTOMER DELIVERY POINT   [$/kg]   --H2_price
      chi^del   = all-in delivery charge per delivered kg          [$/kg]   --delivery_cost
      eps^del   = delivery loss fraction not covered by chi^del    [-]      --delivery_loss
@@ -83,7 +131,9 @@ from argparse import ArgumentParser
 import json
 from dispatches.case_studies.renewables_case.wind_battery_PEM_LMP_new import wind_battery_pem_optimize
 from dispatches.case_studies.renewables_case.RE_flowsheet import default_input_params
-from dispatches.case_studies.renewables_case.load_parameters import market, h2_mols_per_kg, PA
+from dispatches.case_studies.renewables_case.load_parameters import (
+    market, h2_mols_per_kg, PA, pem_cap_cost, discount_rate, N,
+)
 
 # ---------------------------------------------------------------------------
 # PEM conversion factor. MUST match m.fs.pem.electricity_to_mol in
@@ -156,6 +206,28 @@ parser.add_argument(
     type=float,
     default=0.0,
 )
+
+# ----------------------- PEM stack replacement arguments -------------------
+parser.add_argument(
+    "--stack_life",
+    dest="stack_life",
+    help="Lambda^stack: PEM stack life in OPERATING HOURS. DOE PEM technical "
+         "targets: 40000 (2022 status, default), 80000 (2026 and ultimate "
+         "target). Set 0 to disable stack replacement.",
+    action="store",
+    type=float,
+    default=40000.0,
+)
+parser.add_argument(
+    "--stack_repl_frac",
+    dest="stack_repl_frac",
+    help="sigma^stack: stack replacement cost as a fraction of INSTALLED PEM "
+         "capital. DOE Program Record 24005: 0.11 (default). Record 19009: "
+         "0.15. Current SI stresses: 0.30, 0.60.",
+    action="store",
+    type=float,
+    default=0.11,
+)
 options = parser.parse_args()
 
 PEM_ratio = options.PEM_ratio
@@ -164,6 +236,8 @@ delivery_cost = options.delivery_cost       # chi^del,   $/kg delivered
 delivery_loss = options.delivery_loss       # eps^del,   fraction
 delivery_fixed = options.delivery_fixed     # kappa^del, $/yr
 cond_energy = options.cond_energy           # theta^cond, kWh/kg
+stack_life = options.stack_life             # Lambda^stack, operating hours
+stack_repl_frac = options.stack_repl_frac   # sigma^stack, fraction of PEM capital
 
 # ---------------------------------------------------------------------------
 # Derived delivery economics
@@ -172,6 +246,22 @@ if not (0.0 <= delivery_loss < 1.0):
     raise ValueError(f"--delivery_loss must be in [0, 1); got {delivery_loss}")
 if cond_energy < 0.0:
     raise ValueError(f"--cond_energy must be >= 0; got {cond_energy}")
+if stack_life < 0.0:
+    raise ValueError(f"--stack_life must be >= 0; got {stack_life}")
+if stack_repl_frac < 0.0:
+    raise ValueError(f"--stack_repl_frac must be >= 0; got {stack_repl_frac}")
+
+# ---------------------------------------------------------------------------
+# PEM stack replacement reserve
+#   phi^rep = sigma^stack * gamma^pem / Lambda^stack   [$/kWh]
+# gamma^pem is pem_cap_cost from load_parameters.py, an INSTALLED cost, and the
+# DOE sigma^stack values are fractions of installed capital, so the bases match.
+# With theta^cond > 0, Omega^pem is the hydrogen-train capacity and sigma^stack
+# is then the stack's share of the train's capital.
+# ---------------------------------------------------------------------------
+PHI_REP = 0.0                                          # $/kWh
+if stack_life > 0.0:
+    PHI_REP = stack_repl_frac * pem_cap_cost / stack_life
 
 # psi^eff: effective yield after behind-the-meter conditioning [kg/MWh]
 PSI_EFF = PSI_PEM / (1.0 + cond_energy * PSI_PEM / 1000.0)
@@ -192,7 +282,18 @@ TAG = ""
 if _has_delivery:
     TAG = (f"_cd{delivery_cost:g}_loss{delivery_loss:g}"
            f"_cond{cond_energy:g}_kfix{delivery_fixed:g}")
+if PHI_REP > 0.0:
+    TAG += f"_rep{PHI_REP * 1000:g}"
 
+print("=" * 72)
+print("PEM stack replacement")
+print(f"  stack life        Lambda^stack = {stack_life:9.0f} operating h")
+print(f"  replacement frac  sigma^stack  = {stack_repl_frac:9.4f} of installed capital")
+print(f"  PEM capital       gamma^pem    = {pem_cap_cost:9.2f} $/kW")
+print(f"  reserve           phi^rep      = {PHI_REP:9.6f} $/kWh "
+      f"({PHI_REP * 1000:.2f} $/MWh)")
+if PHI_REP == 0.0:
+    print("  (stack replacement DISABLED)")
 print("=" * 72)
 print("Hydrogen delivery economics")
 print(f"  delivered price   rho^H2     = {H2_price:9.4f} $/kg")
@@ -205,7 +306,10 @@ print(f"  effective yield   psi^eff    = {PSI_EFF:9.4f} kg/MWh "
       f"(derate {YIELD_DERATE:.4f})")
 print(f"  netback           rho^net    = {NETBACK:9.4f} $/kg produced")
 print(f"  price to solver              = {PRICE_TO_MODEL:9.4f} $/kg")
-print(f"  implied PEM bid   B          = {PSI_EFF * NETBACK:9.4f} $/MWh")
+print(f"  gross PEM bid                = {PSI_EFF * NETBACK:9.4f} $/MWh "
+      "(before replacement)")
+print(f"  implied PEM bid   B          = {PSI_EFF * NETBACK - PHI_REP * 1000:9.4f} $/MWh "
+      "(after replacement)")
 print("=" * 72)
 
 if NETBACK <= 0.0:
@@ -239,6 +343,59 @@ def delivery_summary(h2_kg_model):
     }
 
 
+def replacement_summary(pem_mw, pem_energy_kwh):
+    """
+    Derive the stack replacement schedule implied by the optimal dispatch.
+
+    EFLH = E^pem / Omega^pem is an OUTPUT of the optimization, so the number of
+    replacements over the project life is derived rather than assumed. This is
+    the quantity Reviewer 1 asked for.
+
+    Also returns the discount correction
+
+        kappa(T) = (T / PA) * sum_{j=1..n} (1+r)^(-jT),  T = Lambda^stack/EFLH
+
+    The levelized reserve phi^rep spreads one replacement evenly over T years
+    with no discounting, so it overstates the present cost of future outlays by
+    1/kappa. Re-run with --stack_repl_frac multiplied by kappa for a
+    discount-consistent second pass.
+    """
+    out = {
+        "stack_life_hours": stack_life,
+        "stack_repl_frac": stack_repl_frac,
+        "phi_rep_per_kwh": PHI_REP,
+        "phi_rep_per_mwh": PHI_REP * 1000.0,
+        "pem_energy_kwh": pem_energy_kwh,
+        "annual_replacement_cost": PHI_REP * pem_energy_kwh,
+    }
+    if pem_mw <= 0.0 or pem_energy_kwh <= 0.0 or stack_life <= 0.0:
+        out.update({"eflh_hours": 0.0, "pem_capacity_factor": 0.0,
+                    "replacement_interval_years": None,
+                    "n_replacements": 0, "kappa_discount": None,
+                    "discounted_annual_replacement_cost": 0.0})
+        return out
+
+    eflh = pem_energy_kwh / (pem_mw * 1000.0)              # h/yr
+    T = stack_life / eflh                                   # yr between replacements
+    years, t = [], T
+    while t < N - 1e-9:
+        years.append(t)
+        t += T
+    disc_sum = sum((1.0 + discount_rate) ** (-y) for y in years)
+    kappa = (T / PA) * disc_sum if years else 0.0
+
+    out.update({
+        "eflh_hours": eflh,
+        "pem_capacity_factor": eflh / 8760.0,
+        "replacement_interval_years": T,
+        "n_replacements": len(years),
+        "replacement_years": years,
+        "kappa_discount": kappa,
+        "discounted_annual_replacement_cost": kappa * PHI_REP * pem_energy_kwh,
+    })
+    return out
+
+
 def run_design(h2_price, pem_ratio):
     """
     Runs the Wind + PEM pricetaker optimization for the given hydrogen selling price ($/kg) and optionally,
@@ -251,6 +408,8 @@ def run_design(h2_price, pem_ratio):
     input_params = default_input_params.copy()
     # The solver sees the netback, not the delivered price.
     input_params['h2_price_per_kg'] = PRICE_TO_MODEL
+    # Stack replacement reserve, added to the PEM variable cost inside the model.
+    input_params['pem_repl_var_cost'] = PHI_REP
     input_params['extant_wind'] = True
     if pem_ratio == None:
         input_params['design_opt'] = "PEM"
@@ -299,6 +458,22 @@ def run_design(h2_price, pem_ratio):
     des_res["NPV_ann_with_delivery"] = des_res["NPV_ann"] - delivery_fixed
     des_res["profit_with_delivery"] = des_res["profit"] - delivery_fixed
 
+    # ----------------------------------------------------------------------
+    # Stack replacement post-processing. phi^rep is already INSIDE the solve
+    # (it changed the bid and the dispatch); what follows only derives the
+    # implied schedule and the discount correction for a second pass.
+    # ----------------------------------------------------------------------
+    rsum = replacement_summary(
+        des_res["pem_mw"], des_res.get("pem_energy_kwh", 0.0)
+    )
+    des_res["replacement"] = rsum
+    # NPV if future outlays are discounted rather than levelized (pass 2 target).
+    _repl_credit = (rsum["annual_replacement_cost"]
+                    - rsum["discounted_annual_replacement_cost"])
+    des_res["NPV_ann_discounted_repl"] = (
+        des_res["NPV_ann_with_delivery"] + _repl_credit
+    )
+
     des_res["delivery"] = {
         "h2_price_delivered": H2_price,
         "delivery_cost_per_kg": delivery_cost,
@@ -334,6 +509,16 @@ def run_design(h2_price, pem_ratio):
     print(f"  H2 revenue    {dsum['h2_revenue_gross']/1e6:10.3f} M$/yr (gross, at delivered price)")
     print(f"  delivery cost {dsum['delivery_cost_total']/1e6:10.3f} M$/yr")
     print(f"  H2 revenue    {dsum['h2_revenue_net']/1e6:10.3f} M$/yr (net)")
+    if PHI_REP > 0.0 and rsum["replacement_interval_years"]:
+        print(f"  PEM EFLH      {rsum['eflh_hours']:10.1f} h/yr "
+              f"(CF {rsum['pem_capacity_factor']*100:.1f}%)")
+        print(f"  stack life    {rsum['replacement_interval_years']:10.2f} yr "
+              f"-> {rsum['n_replacements']} replacement(s) over {N:.0f} yr")
+        print(f"  REPL          {rsum['annual_replacement_cost']/1e6:10.3f} M$/yr (levelized, in-model)")
+        print(f"  REPL          {rsum['discounted_annual_replacement_cost']/1e6:10.3f} M$/yr "
+              f"(discounted, kappa={rsum['kappa_discount']:.3f})")
+        print(f"  -> second pass: --stack_repl_frac "
+              f"{stack_repl_frac * rsum['kappa_discount']:.5f}")
     print(f"  NPV_ann       {des_res['NPV_ann_with_delivery']/1e6:10.3f} M$/yr")
     print(f"Finished: {h2_price} {pem_ratio}{TAG}")
     return res

@@ -265,6 +265,15 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ma
 
     m.h2_price_per_kg = pyo.Param(default=input_params['h2_price_per_kg'], mutable=True)
 
+    # PEM stack replacement reserve, phi^rep = sigma^stack * gamma^pem / Lambda^stack [$/kWh].
+    # Defaults to 0.0 so that callers which do not set it (run_pricetaker_wind_PEM.py,
+    # run_pricetaker_wind_PEM_new.py, ...) are unaffected.
+    # m.fs.pem.var_cost is an immutable Param, hence this separate term.
+    m.pem_repl_var_cost = pyo.Param(
+        default=input_params.get('pem_repl_var_cost', 0.0), mutable=True,
+        doc="levelized PEM stack replacement reserve $/kWh"
+    )
+
     m.wind_cap_cost = pyo.Param(default=wind_cap_cost, mutable=True)
     m.pem_cap_cost = pyo.Param(default=pem_cap_cost, mutable=True)
     m.batt_cap_cost_kw = pyo.Param(default=batt_cap_cost_kw, mutable=True)
@@ -295,7 +304,9 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ma
             expr=m.battery_system_capacity * blk_battery.op_cost / 8760
         )
         blk_pem.op_total_cost = Expression(
-            expr=m.pem_system_capacity * blk_pem.op_cost / 8760 + blk_pem.var_cost * blk_pem.electricity[0],
+            expr=m.pem_system_capacity * blk_pem.op_cost / 8760
+                 + blk_pem.var_cost * blk_pem.electricity[0]
+                 + m.pem_repl_var_cost * blk_pem.electricity[0],
         )
 
         # add market data for each block
@@ -456,6 +467,10 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ma
         ax1[2].grid(visible=True, which='minor', color='k', linestyle='--', alpha=0.2)
         plt.show()
 
+    # PEM energy throughput [kWh/yr] and the levelized stack replacement reserve [$/yr]
+    pem_energy_kwh = float(np.sum(wind_to_pem))
+    annual_repl_cost = value(m.pem_repl_var_cost) * pem_energy_kwh
+
     design_res = {
         'wind_mw': wind_cap,
         "batt_mw": batt_cap,
@@ -465,6 +480,9 @@ def wind_battery_pem_optimize(time_points, input_params=default_input_params, ma
         "profit": sum(profit),
         "NPV": value(m.NPV),
         "NPV_ann": value(m.NPV_ann),
+        "pem_energy_kwh": pem_energy_kwh,
+        "pem_repl_var_cost": value(m.pem_repl_var_cost),
+        "annual_pem_replacement_cost": annual_repl_cost,
         "solver_stat": str(ipopt_res.solver.termination_condition)
     }
     print(design_res)
