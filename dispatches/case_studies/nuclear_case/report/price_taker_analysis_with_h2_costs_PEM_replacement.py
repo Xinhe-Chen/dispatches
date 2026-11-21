@@ -50,6 +50,7 @@ to delivered prices of 1.6279 ... 3.1687 $/kg.
 __author__ = "Radhakrishna Tumbalam Gooty"
 
 # General python imports
+import argparse
 import json
 import os
 from importlib import resources
@@ -579,7 +580,7 @@ def _fmt(x):
     return str(int(x)) if float(x).is_integer() else str(x)
 
 
-def _case_tag(chi_del, eps_del, theta_cond, kappa_del, phi_rep):
+def case_tag(chi_del, eps_del, theta_cond, kappa_del, phi_rep):
     """Names a sweep after its cost assumptions, as in the wind case study."""
     return (
         "cd" + _fmt(chi_del)
@@ -588,6 +589,10 @@ def _case_tag(chi_del, eps_del, theta_cond, kappa_del, phi_rep):
         + "_kfix" + _fmt(kappa_del)
         + "_rep" + _fmt(round(phi_rep, 2))
     )
+
+
+# Retained for backward compatibility with the earlier private name.
+_case_tag = case_tag
 
 
 def run_exhaustive_enumeration(
@@ -618,8 +623,10 @@ def run_exhaustive_enumeration(
         chi_del: Delivery charge per delivered kg [$/kg]
         eps_del: Delivery loss fraction [-]
         kappa_del: Fixed annual delivery service expense [$/yr]
-        output_dir: Directory for the hourly schedules; defaults to a directory named
-            after the market and the cost assumptions
+        output_dir: Directory for the hourly schedules and the summary json; defaults
+            to a directory named after the market and the cost assumptions, e.g.
+            "DA-RT_cd0.5_loss0.005_cond11_kfix0_rep3.3". Nothing is written to the
+            working directory.
         step1_dir: Directory holding the step-1 (DA) schedules read by the "DA-RT"
             variant; defaults to the "DA" directory for the same cost assumptions, so
             the "DA" sweep must have been run first with the same arguments
@@ -642,7 +649,7 @@ def run_exhaustive_enumeration(
     h2_demand = NPP_CAPACITY * PSI_EFF
     demand_type = "variable"
 
-    tag = _case_tag(chi_del, eps_del, THETA_COND, kappa_del, phi_rep)
+    tag = case_tag(chi_del, eps_del, THETA_COND, kappa_del, phi_rep)
     if output_dir is None:
         output_dir = market + "_" + tag
     os.makedirs(output_dir, exist_ok=True)
@@ -656,7 +663,7 @@ def run_exhaustive_enumeration(
             "Run the sweep with market='DA' first, or pass step1_dir explicitly."
         )
 
-    solver = SolverFactory("ipopt")
+    solver = SolverFactory("gurobi")
     results = {
         "h2_price": h2_price, "pem_cap": pem_capacity, "solver_stat": {},
         "elec_rev": {}, "h2_rev": {}, "net_npv": {}, "net_profit": {},
@@ -759,12 +766,91 @@ def run_exhaustive_enumeration(
     results["capex"] = value(m.capex) / 1e6
     results["fom"] = value(m.fixed_om_cost) / 1e6
 
-    filename = (
-        "price_taker_pem_" + str(pem_capex) + "_" + market + "_" + tag + ".json"
+    # The summary json is written alongside the hourly schedules, in the folder named
+    # after the market and the cost assumptions, so that nothing lands in the working
+    # directory and the four price-taker variants never overwrite one another.
+    filename = os.path.join(
+        output_dir,
+        "price_taker_pem_" + str(pem_capex) + "_" + market + "_" + tag + ".json",
     )
     with open(filename, "w") as fp:
         json.dump(results, fp, indent=4)
 
+    print("Results written to " + os.path.abspath(filename))
+
+
+def _parse_args(argv=None):
+    """
+    Command-line interface, so that a cluster job can run one market variant.
+
+    theta^cond, sigma^stack and Lambda^stack are module constants rather than
+    arguments, because `market_surrogates_with_h2_costs_PEM_replacement` imports them
+    from here: edit them in one place and both analyses follow. varphi^rep is derived
+    from --pem_capex, so it tracks the capital cost automatically.
+    """
+    parser = argparse.ArgumentParser(
+        description="Price-taker sweep for the NE case study, with hydrogen "
+                    "conditioning, delivery and PEM stack replacement costs.",
+    )
+    parser.add_argument(
+        "--market", default="DA-RT", choices=["DA", "RT", "Max-DA-RT", "DA-RT"],
+        help="Price-taker variant (default: DA-RT)",
+    )
+    parser.add_argument(
+        "--pem_capex", type=float, default=1200,
+        help="Overnight capital cost of the PEM electrolyzer [$/kW] (default: 1200)",
+    )
+    parser.add_argument(
+        "--bids", type=float, nargs="+", default=[15, 20, 25, 30, 35, 40],
+        help="PEM bids to sweep [$/MWh] (default: 15 20 25 30 35 40)",
+    )
+    parser.add_argument(
+        "--h2_price", type=float, nargs="+", default=None,
+        help="Delivered hydrogen prices [$/kg]; overrides --bids when given",
+    )
+    parser.add_argument(
+        "--delivery_cost", type=float, default=CHI_DEL,
+        help="chi^del, delivery charge per delivered kg [$/kg] "
+             "(default: %(default)s)",
+    )
+    parser.add_argument(
+        "--delivery_loss", type=float, default=EPS_DEL,
+        help="eps^del, delivery loss fraction [-] (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--delivery_fixed", type=float, default=KAPPA_DEL,
+        help="kappa^del, fixed annual delivery service expense [$/yr] "
+             "(default: %(default)s)",
+    )
+    parser.add_argument(
+        "--output_dir", default=None,
+        help="Directory for the schedules and the results json "
+             "(default: <market>_<cost tag>)",
+    )
+    parser.add_argument(
+        "--step1_dir", default=None,
+        help="Directory holding the step-1 day-ahead schedules read by DA-RT "
+             "(default: DA_<cost tag>)",
+    )
+    return parser.parse_args(argv)
+
 
 if __name__ == '__main__':
-    run_exhaustive_enumeration(pem_capex=1200, market="DA-RT")
+    args = _parse_args()
+
+    # Keep integral capital costs out of the file names as "1200" rather than "1200.0"
+    pem_capex_arg = (
+        int(args.pem_capex) if float(args.pem_capex).is_integer() else args.pem_capex
+    )
+
+    run_exhaustive_enumeration(
+        pem_capex=pem_capex_arg,
+        market=args.market,
+        pem_bids=args.bids,
+        h2_price=args.h2_price,
+        chi_del=args.delivery_cost,
+        eps_del=args.delivery_loss,
+        kappa_del=args.delivery_fixed,
+        output_dir=args.output_dir,
+        step1_dir=args.step1_dir,
+    )
