@@ -492,9 +492,14 @@ if __name__ == "__main__":
     import multiprocessing as mp
     from itertools import product
 
-    bids = np.linspace(15, 45, 13)
-    sizes = np.linspace(127.05, 423.5, 15)
-    inputs = product(bids, sizes)
+    # 7 PEM bids x 8 capacity ratios = 56 designs, the same grid the PCM
+    # enumeration and the PT2 price-taker sweep use.
+    pem_bid_range   = [15, 20, 25, 30, 35, 40, 45]
+    pem_ratio_range = [0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
+
+    bids  = np.array(pem_bid_range, dtype=float)
+    sizes = np.round(np.array(pem_ratio_range, dtype=float) * 847.0, 6)
+    inputs = list(product(bids, sizes))   # run_design(PEM_bid, PEM_size)
 
     print("=" * 72)
     print("SA sweep with H2 delivery and PEM stack replacement")
