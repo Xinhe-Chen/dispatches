@@ -656,7 +656,7 @@ def run_exhaustive_enumeration(
             "Run the sweep with market='DA' first, or pass step1_dir explicitly."
         )
 
-    solver = SolverFactory("gurobi")
+    solver = SolverFactory("ipopt")
     results = {
         "h2_price": h2_price, "pem_cap": pem_capacity, "solver_stat": {},
         "elec_rev": {}, "h2_rev": {}, "net_npv": {}, "net_profit": {},
