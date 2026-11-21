@@ -271,7 +271,7 @@ def conceptual_design_ss_NE(reserve=10, max_lmp=500, H2_SELLING_PRICE=2):
 
     # Calculate net power to PEM
     m.pem_energy_calculation = Constraint(
-        expr=m.net_energy_to_pem == (1 - m.npp_capacity_factor) * NP_CAPACITY * NUM_HOURS
+        expr=m.net_energy_to_pem <= (1 - m.npp_capacity_factor) * NP_CAPACITY * NUM_HOURS
     )
 
     # Calculate net hydrogen production. The liquefier draws theta^cond = 11 kWh/kg from
@@ -450,10 +450,13 @@ def run_exhaustive_enumeration(
 
         unsolved_cases = []
 
-        m.feasibility_constraint = Constraint(
-            expr=m.npp_capacity_factor >= 1 - m.pem_np_cap_ratio
+        # m.feasibility_constraint = Constraint(
+        #     expr=m.npp_capacity_factor >= 1 - m.pem_np_cap_ratio
+        # )
+        m.feasibility_constraint2 = Constraint(
+            expr=m.net_energy_to_pem <= m.pem_capacity * NUM_HOURS
         )
-        m.feasibility_constraint.deactivate()
+        # m.feasibility_constraint.deactivate()
 
         for idx2, pc in enumerate(pem_cap):
             # This loop actually solves the problem and records the unsolved cases
