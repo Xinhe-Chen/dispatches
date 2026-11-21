@@ -21,6 +21,17 @@ Sweep (identical shape to the original NE enumeration):
     PEM bid B [$/MWh]     : [15, 20, 25, 30, 35, 40]   (6 bids)
     -> 60 cases per market variant
 
+USAGE
+-----
+    python sub_job_PT_with_h2_costs_PEM_replacement.py --markets RT
+    python sub_job_PT_with_h2_costs_PEM_replacement.py --markets RT --dry-run
+    python sub_job_PT_with_h2_costs_PEM_replacement.py --markets DA DA-RT
+    python sub_job_PT_with_h2_costs_PEM_replacement.py --help
+
+With no arguments it submits DA and then DA-RT, which is the default two-settlement
+study. --dry-run writes the job scripts and prints the qsub commands without queueing
+anything, which is the quickest way to check the hydrogen prices and output paths.
+
 ONE JOB PER MARKET VARIANT, NOT ONE PER CASE
 --------------------------------------------
 The wind driver takes a single (ratio, price) pair per job, so its submit script
@@ -143,6 +154,33 @@ def cost_tag():
             + "_rep" + fmt(round(PHI_REP, 2)))
 
 
+def check_driver_has_cli():
+    """
+    Refuses to submit if the driver next to this script predates its command line.
+
+    An older driver has no argument parser, so it would silently ignore --market and
+    run whatever variant its own __main__ hard-codes. This reads the file as text, so
+    it works on a submit node without pyomo or idaes.
+    """
+    driver_path = os.path.join(this_file_path, DRIVER)
+    if not os.path.isfile(driver_path):
+        raise SystemExit("Driver not found: " + driver_path)
+
+    with open(driver_path) as f:
+        text = f.read()
+
+    required = ["def _parse_args", '"--market"', '"--bids"', '"--delivery_cost"']
+    missing = [token for token in required if token not in text]
+    if missing:
+        raise SystemExit(
+            "The driver at\n  " + driver_path + "\nis an older version without the "
+            "command-line options this script passes (missing: "
+            + ", ".join(missing) + ").\nIt would ignore --market and run the "
+            "variant hard-coded in its __main__. Copy the current "
+            + DRIVER + " next to this script and re-run. Nothing was queued."
+        )
+
+
 def check_against_driver():
     """
     Verifies that the constants above agree with the model.
@@ -223,7 +261,7 @@ def submit_job(market, pem_bids, hold_jid=None):
     job_name = "ne_pt_h2cost_" + market.replace("-", "_")
     file_name = os.path.join(job_scripts_dir, job_name + ".sh")
 
-    bids = " ".join(str(b) for b in pem_bids)
+    bids = " ".join(fmt(b) for b in pem_bids)
 
     lines = [
         "#!/bin/bash",
@@ -266,12 +304,48 @@ def submit_job(market, pem_bids, hold_jid=None):
     return job_name
 
 
+def parse_args(argv=None):
+    """Command-line options for this submit script."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Submit the NE price-taker sweep with hydrogen conditioning, "
+                    "delivery and PEM stack replacement costs.",
+        epilog="Examples:\n"
+               "  python %(prog)s --markets RT\n"
+               "  python %(prog)s --markets RT --dry-run\n"
+               "  python %(prog)s --markets DA DA-RT\n"
+               "  python %(prog)s --markets Max-DA-RT --bids 15 25 35\n",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--markets", nargs="+", default=["DA", "DA-RT"],
+        choices=["DA", "RT", "Max-DA-RT", "DA-RT"],
+        help="Price-taker variants to submit, one job each "
+             "(default: DA DA-RT). DA is always submitted first when present, "
+             "because DA-RT reads its schedules.",
+    )
+    parser.add_argument(
+        "--bids", type=float, nargs="+", default=[15, 20, 25, 30, 35, 40],
+        help="PEM bids to sweep [$/MWh] (default: 15 20 25 30 35 40)",
+    )
+    parser.add_argument(
+        "--dry-run", dest="dry_run", action="store_true", default=DRY_RUN,
+        help="Print the qsub commands and write the job scripts without submitting",
+    )
+    return parser.parse_args(argv)
+
+
 if __name__ == "__main__":
+    cli = parse_args()
+    DRY_RUN = cli.dry_run
+
     # The driver sweeps the capacity ratios internally: [0.05, 0.1, ..., 0.5]
-    pem_bid_range = [15, 20, 25, 30, 35, 40]            # $/MWh, the PCM grid
+    pem_bid_range = list(cli.bids)                      # $/MWh, the PCM grid
 
     # Submit "DA" before "DA-RT": the two-step variant reads the day-ahead schedules.
-    markets = ["DA", "DA-RT"]
+    markets = ([m for m in cli.markets if m == "DA"]
+               + [m for m in cli.markets if m != "DA"])
 
     # delivered hydrogen price for each bid, for the table below only
     h2_price_range = [round(h2_price_for_bid(b), 4) for b in pem_bid_range]
@@ -300,6 +374,7 @@ if __name__ == "__main__":
             b, p, netback, bid_for_h2_price(p)))
     print("=" * 78)
 
+    check_driver_has_cli()
     check_against_driver()
 
     tag = cost_tag()
@@ -313,9 +388,26 @@ if __name__ == "__main__":
         len(markets), "" if len(markets) == 1 else "s",
         len(pem_bid_range) * 10, " (DRY RUN)" if DRY_RUN else ""))
 
-    previous = None
+    da_job = None
     for market in markets:
-        hold = previous if market == "DA-RT" else None
+        hold = da_job if market == "DA-RT" else None
+
+        if market == "DA-RT" and hold is None:
+            # DA is not part of this submission, so its schedules must already exist.
+            step1 = os.path.join(this_file_path, "DA_" + tag)
+            if not os.path.isdir(step1):
+                raise SystemExit(
+                    "DA-RT needs the step-1 schedules in\n  " + step1
+                    + "\nand that folder does not exist. Submit DA first:\n"
+                    "  python " + os.path.basename(__file__) + " --markets DA\n"
+                    "or submit both together:\n"
+                    "  python " + os.path.basename(__file__)
+                    + " --markets DA DA-RT"
+                )
+            print("  [note] DA-RT will read the existing schedules in " + step1)
+
         print("Submitting {0}{1}".format(
             market, " (held until " + hold + " finishes)" if hold else ""))
-        previous = submit_job(market, pem_bid_range, hold_jid=hold)
+        name = submit_job(market, pem_bid_range, hold_jid=hold)
+        if market == "DA":
+            da_job = name
